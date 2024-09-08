@@ -1,8 +1,12 @@
 import os
 import unittest
+import io
+import logging
 from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
-from brightpearl_client.client import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult
+from brightpearl_client.client import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError
+import requests
+import time
 
 # Load environment variables from .env file
 load_dotenv()
@@ -90,6 +94,86 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         self.assertEqual(parsed_results[0].contact_id, 3)
         self.assertEqual(parsed_results[0].order_status_id, 4)
         self.assertEqual(parsed_results[0].order_stock_status_id, 5)
+
+    # @patch('time.sleep')
+    # @patch('time.time')
+    # def test_respect_rate_limit(self, mock_time, mock_sleep):
+    #     mock_time.side_effect = [0, 0.5, 1.0]  # Simulate time passing
+    #     self.client._respect_rate_limit()
+    #     self.client._respect_rate_limit()
+    #     mock_sleep.assert_called_once_with(0.5)
+    #     self.assertEqual(self.client.last_request_time, 1.0)
+
+    @patch('brightpearl_client.client.requests.get')
+    @patch('time.sleep')
+    def test_rate_limit_exponential_backoff(self, mock_sleep, mock_get):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = [
+            requests.exceptions.HTTPError("429 Client Error: Too Many Requests"),
+            None
+        ]
+        mock_response.status_code = 429
+        mock_response.json.return_value = {"response": {"results": []}}
+        mock_get.return_value = mock_response
+
+        self.client.get_orders_by_status(37)
+
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_sleep.assert_any_call(1)  # First retry sleeps for 1 second
+        mock_sleep.assert_any_call(1)  # Rate limit sleep
+
+    @patch('brightpearl_client.client.requests.get')
+    def test_client_error_handling(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("400 Client Error: Bad Request")
+        mock_response.status_code = 400
+        mock_get.return_value = mock_response
+
+        with self.assertRaises(BrightPearlApiError):
+            self.client.get_orders_by_status(37)
+
+    @patch('brightpearl_client.client.requests.get')
+    def test_server_error_handling(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error: Internal Server Error")
+        mock_response.status_code = 500
+        mock_get.return_value = mock_response
+
+        with self.assertRaises(BrightPearlApiError):
+            self.client.get_orders_by_status(37)
+
+    @patch('brightpearl_client.client.requests.get')
+    def test_max_retries_exceeded(self, mock_get):
+        mock_get.side_effect = requests.exceptions.RequestException("Connection error")
+
+        with self.assertRaises(BrightPearlApiError) as context:
+            self.client.get_orders_by_status(37)
+
+        self.assertIn("Failed to retrieve data after 3 attempts", str(context.exception))
+
+class TestLogging(unittest.TestCase):
+    def setUp(self):
+        self.log_capture = io.StringIO()
+        self.handler = logging.StreamHandler(self.log_capture)
+        logging.getLogger().addHandler(self.handler)
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    def tearDown(self):
+        logging.getLogger().removeHandler(self.handler)
+
+    @patch('brightpearl_client.client.requests.get')
+    def test_logging(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"response": {"results": [[1, 2, 3, 4, 5]]}}
+        mock_get.return_value = mock_response
+
+        client = BrightPearlClient("http://test.com", {})
+        client.get_orders_by_status(37)
+
+        log_contents = self.log_capture.getvalue()
+        self.assertIn("Retrieving orders with status ID: 37", log_contents)
+        self.assertIn("Making request to: http://test.com/order-service/order-search?orderStatusId=37", log_contents)
+        self.assertIn("Successfully retrieved data from: http://test.com/order-service/order-search?orderStatusId=37", log_contents)
 
 class TestBrightPearlClientLive(unittest.TestCase):
     @classmethod
