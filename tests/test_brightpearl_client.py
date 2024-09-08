@@ -41,11 +41,20 @@ class TestBrightPearlClientMocked(unittest.TestCase):
     def test_get_orders_by_status_with_string(self):
         """
         Test the get_orders_by_status method with a string input for status_id.
-        This test should fail as the method expects an integer for status_id.
+        This test should fail as the method expects a positive integer for status_id.
         """
         # Call the method
-        with self.assertRaises(TypeError):
-            self.client.get_orders_by_status("42")  # type: ignore
+        with self.assertRaises(ValueError):
+            self.client.get_orders_by_status("42")
+
+    def test_get_orders_by_status_with_negative_integer(self):
+        """
+        Test the get_orders_by_status method with a negative integer input for status_id.
+        This test should fail as the method expects a positive integer for status_id.
+        """
+        # Call the method
+        with self.assertRaises(ValueError):
+            self.client.get_orders_by_status(-1)
 
     @patch('brightpearl_client.client.requests.get')
     def test_make_request_error(self, mock_get):
