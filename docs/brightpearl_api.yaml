@@ -1,0 +1,216 @@
+brightpearl_api:
+  base_url: "https://{DATACENTER}.brightpearlconnect.com/public-api/{ACCOUNT}"
+
+  authentication:
+    type: "OAuth 2.0"
+    token_endpoint: "/oauth/token"
+    introspection_endpoint: "/oauth/token/introspect"
+
+  services:
+    accounting:
+      resources:
+        accounting_period:
+          methods: [GET, POST]
+          description: "Represents a business' accounting periods, usually their financial years."
+
+        accounting_period_lock:
+          methods: [GET]
+          description: "Represents the lock on a business' accounting period."
+
+        all_transaction_statement:
+          methods: [SEARCH]
+          description: "All transaction journal search for generating contact statements."
+
+        contact_balance:
+          methods: [GET]
+          description: "The balance of a contact is given by the sum of open invoices less the sum of open credits."
+
+        currency:
+          methods: [SEARCH]
+          description: "Provides access to the currencies configured in an account."
+
+        customer_payment:
+          methods: [SEARCH, POST, DELETE]
+          description: "Customer Payments are used to record financial transactions against Sales Orders and Sales Credits."
+
+        exchange_rate:
+          methods: [GET, POST, PUT]
+          description: "Manages exchange rates for currencies."
+
+        journal:
+          methods: [SEARCH, GET, POST]
+          description: "Journals contain all the debits and credits affecting accounts for a particular transaction."
+
+        nominal_code:
+          methods: [SEARCH, GET]
+          description: "The chart of accounts is the set of nominal codes used to categorise financial transactions."
+
+        payment_method:
+          methods: [SEARCH, GET, POST, PUT]
+          description: "Payment methods contain information about a method and its associated bank accounts."
+
+        sales_receipt:
+          methods: [POST]
+          description: "Sales receipts record payments against sales orders or credits."
+
+        tax_code:
+          methods: [GET]
+          description: "Tax codes define what type and rate of tax apply to a Journal."
+
+    order:
+      resources:
+        order:
+          methods: [SEARCH, OPTIONS, GET, POST, PATCH]
+          description: "Represents an exchange of goods or services between your company and a supplier or customer."
+
+        order_acknowledgement:
+          methods: [PUT]
+          description: "Represents a supplier's acknowledgement that they have to fulfil a Brightpearl order."
+
+        order_note:
+          methods: [SEARCH, GET, POST]
+          description: "Represents a note against a Brightpearl order."
+
+        order_row:
+          methods: [POST, PATCH, DELETE]
+          description: "Represents a line on an order."
+
+        order_shipping_status:
+          methods: [GET]
+          description: "Indicates the shipping status of a sale, credit or purchase."
+
+        order_status:
+          methods: [GET, POST]
+          description: "Represents the status of an order."
+
+        order_stock_status:
+          methods: [GET]
+          description: "Indicates the fulfilment status of a sale, credit or purchase."
+
+        order_type:
+          methods: [GET]
+          description: "Identifies the types of orders returned by the Order GET and Order SEARCH APIs."
+
+    product:
+      resources:
+        product:
+          methods: [SEARCH, GET, POST, PUT]
+          description: "Represents a product in the system."
+
+        product_type:
+          methods: [SEARCH, GET, POST]
+          description: "Represents types of products."
+
+        product_identity:
+          methods: [PUT]
+          endpoint: "/product-service/product/{ID}/identity"
+          description: "Updates the identifiers for the product."
+
+    warehouse:
+      resources:
+        warehouse:
+          methods: [SEARCH, GET, POST, PUT, DELETE]
+          description: "Represents a collection of Locations in which physical stock is stored."
+
+        goods_in_note:
+          methods: [SEARCH, GET, POST, DELETE]
+          description: "Represents stock entering your stock control system for the first time."
+
+        goods_out_note:
+          methods: [SEARCH, GET, POST, PUT, DELETE]
+          description: "Represents stock permanently leaving your stock control system."
+
+        product_availability:
+          methods: [GET]
+          description: "Allows you to query the availability of a set of products."
+
+        reservation:
+          methods: [GET, POST, PUT, DELETE]
+          endpoint: "/warehouse-service/order/{ID}/reservation"
+          description: "Manages stock reservations for Sales Orders."
+
+        warehouse_defaults:
+          methods: [GET, PUT]
+          endpoint: "/warehouse-service/warehouse/{ID}/product/{PRODUCT-ID}"
+          description: "Manages warehouse defaults and stock thresholds for products."
+
+        asset_value_correction:
+          methods: [POST]
+          description: "Allows the value of stock in a batch to be corrected."
+
+        bundle_availability:
+          methods: [GET]
+          description: "Calculates the number of complete bundles that can be assembled from the stock of components on hand in each warehouse."
+
+        default_location:
+          methods: [GET]
+          description: "Returns the ID of the default location in a given warehouse."
+
+        drop_ship_note:
+          methods: [GET, POST]
+          description: "Records the shipment of an order from a supplier direct to a customer without the stock ever being stored in an account's warehouse."
+
+        external_transfer:
+          methods: [POST]
+          description: "Represents the movement of stock between two warehouses."
+
+        fulfilment_source:
+          methods: [GET]
+          description: "Determines where you can fulfil an order from."
+
+        internal_transfer:
+          methods: [POST]
+          description: "Used to move stock between two Locations within a single Warehouse."
+
+        location:
+          methods: [SEARCH, GET, POST, DELETE]
+          description: "Represents a physical space in a Warehouse that an item of stock can be held in."
+
+        pick:
+          methods: [POST]
+          description: "Used to update Brightpearl during sales order fulfilment."
+
+        quarantine_location:
+          methods: [GET]
+          description: "Each warehouse has a quarantine location, used for stock that should not be available for sale, allocation or reservation."
+
+        quarantine_release:
+          methods: [POST]
+          description: "Allows you to Release Stock Located in your Quarantine Location within your Warehouse to an actual Location so it can be used."
+
+        stock_correction:
+          methods: [GET, POST]
+          description: "Allows you to directly adjust the level of stock in a location."
+
+    utilities:
+      resources:
+        oauth_token:
+          methods: [POST]
+          description: "Used to generate an OAuth authorization token for an integration."
+
+        oauth_token_introspection:
+          methods: [POST]
+          description: "Used to get information about an OAuth access token."
+
+        account_location:
+          methods: [GET]
+          description: "Allows you to validate an account code and find the datacentre on which it is hosted."
+
+        installed_accounts:
+          methods: [GET]
+          description: "Provides a list of the accounts that have installed your apps, including unsigned account tokens."
+
+    pricing:
+      resources:
+        customer_product_price:
+          methods: [GET]
+          description: "Fetch the relevant factors which go into determining the price of a product for a given customer."
+
+  pagination:
+    description: "Most search endpoints support pagination using 'pageSize' and 'page' query parameters."
+
+  filtering:
+    description: "Search endpoints typically support filtering using various query parameters specific to the resource."
+
+  error_responses:
+    description: "API errors are returned with appropriate HTTP status codes and error messages in the response body."
