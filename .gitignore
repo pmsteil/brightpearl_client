@@ -37,3 +37,8 @@ Pipfile.lock
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Package specific
+*.egg-info/
+dist/
+build/
