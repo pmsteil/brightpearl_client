@@ -1,13 +1,8 @@
-import sys
 import os
 import unittest
 from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
-from BrightPearlClient import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult
-
-# Add the project root to the Python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
+from brightpearl_client.client import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,7 +13,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         self.api_headers = { "brightpearl-app-ref": "nisolo_operations", "brightpearl-account-token": "Da+8ugbNK6nUL1QnmJROutSj77AKOqPLbzXymaK/yrU=" }
         self.client = BrightPearlClient(self.api_url, self.api_headers)
 
-    @patch('BrightPearlClient.requests.get')
+    @patch('brightpearl_client.client.requests.get')
     def test_get_orders_by_status(self, mock_get):
         """
         Test the get_orders_by_status method with a mocked API response.
@@ -52,7 +47,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.client.get_orders_by_status("42")  # type: ignore
 
-    @patch('BrightPearlClient.requests.get')
+    @patch('brightpearl_client.client.requests.get')
     def test_make_request_error(self, mock_get):
         """
         Test the error handling of the _make_request method.
@@ -72,7 +67,6 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         """
         client = BrightPearlClient(self.api_url + "/", self.api_headers)
         expected_url = self.api_url.rstrip('/')
-        print(f"client.api_url: {client.api_url}, expected_url: {expected_url}")
         self.assertEqual(client.api_url, expected_url)
 
     def test_parse_order_results(self):
