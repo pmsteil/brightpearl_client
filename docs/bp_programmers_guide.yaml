@@ -1,0 +1,113 @@
+title: Brightpearl API Resource Search Guide
+version: 1.0.0
+description: A guide to using resource searches in the Brightpearl API
+
+introduction:
+  overview: >
+    The Brightpearl API is RESTful, manipulating resources such as Warehouses, Journals, and Contacts.
+    This guide focuses on the resource search functionality, which differs from standard REST operations.
+  key_points:
+    - Resource searches are implemented as separate GET messages
+    - Searches are designed to be terse, fast, and consistent across resource types
+    - Understanding resource searches requires more effort, but knowledge is reusable
+
+key_concepts:
+  issuing_a_search:
+    description: >
+      Resource searches are HTTP GET messages with a -search suffix added to the resource path.
+    example: /contact-search
+  meta_data:
+    description: >
+      Programmatically discover search capabilities by issuing a meta-data request.
+    example: /contact-search/meta-data
+  columns:
+    description: >
+      Specify the data to be included in results. Can be used to constrain the search.
+    example: /contact-search?primaryEmail=brightpearl.com&firstName=Ben
+  filters:
+    description: >
+      Similar to columns, but do not directly map to result columns.
+  pagination_and_sorting:
+    description: >
+      Built-in mechanism for handling large result sets.
+
+response_structure:
+  sections:
+    - meta_data
+    - results
+    - reference
+
+meta_data:
+  description: Information describing the results
+  properties:
+    - resultsAvailable
+    - resultsReturned
+    - firstResult
+    - lastResult
+  columns:
+    properties:
+      - name
+      - sortable
+      - filterable
+      - reportDataType
+      - referenceData
+      - required
+  sorting:
+    description: Explains the applied sort order
+    properties:
+      - direction: ASC or DESC
+
+results:
+  description: >
+    A two-dimensional array containing the actual search results.
+    Each inner array corresponds to the columns specified in meta_data.
+
+reference:
+  description: >
+    Present when columns have referenceData property.
+    Used to avoid duplicating data in results.
+
+specifying_sort_order:
+  description: Change default sort order using the 'sort' query parameter
+  examples:
+    - /goods-out-note-search?sort=warehouseId.ASC
+    - /goods-out-note-search?sort=warehouseId,price.DESC
+
+pagination:
+  parameters:
+    pageSize:
+      description: Maximum number of results per response
+      max_value: 500
+    firstResult:
+      description: One-based index of the first desired result
+
+simple_count:
+  description: Retrieve only the count of results
+  example: /contact-search?countOnly=true
+
+advanced_features:
+  column_set_and_ordering:
+    description: Control which columns are included and their order
+    parameter: columns
+    examples:
+      - /contact-search?columns=contactId
+      - /contact-search?columns=contactId,firstName
+      - /contact-search?columns=firstName,contactId
+
+data_types:
+  - INTEGER
+  - IDSET
+  - STRING
+  - DATETIME
+  - BOOLEAN
+  - SEARCH_STRING
+  - STRING_SET
+  - FREE_TEXT_QUERY
+  - PERIOD
+
+best_practices:
+  - Reuse code across different resource searches
+  - Use pagination for large result sets
+  - Utilize column selection to minimize data transfer
+  - Leverage reference data to reduce redundancy
+  - Use meta-data requests to understand search capabilities

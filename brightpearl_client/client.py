@@ -17,6 +17,8 @@ import requests  # Add this import
 import os
 import json
 from datetime import datetime, timedelta
+import math
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +66,13 @@ class BrightPearlClient(BaseBrightPearlClient):
         response = self._make_request(relative_url, BrightPearlApiResponse)
         return self._parse_api_results(response) if parse_api_results else response
 
-    def get_product_availability(self, product_ids: List[int]) -> Dict:
+    def get_product_availability(self, product_ids: List[int], cache_minutes: int = 15) -> Dict:
         """
         Retrieve the availability for specified products across all warehouses.
 
         Args:
             product_ids (List[int]): A list of product IDs to query.
+            cache_minutes (int): Number of minutes to consider the cache valid. Defaults to 15.
 
         Returns:
             Dict: A dictionary containing the availability information for the specified products across all warehouses.
@@ -81,11 +84,20 @@ class BrightPearlClient(BaseBrightPearlClient):
         if not product_ids:
             raise ValueError("product_ids must not be empty")
 
-        product_ids_str = ','.join(map(str, product_ids))
+        # Create a hash of the product IDs for the cache key
+        product_ids_str = ','.join(map(str, sorted(product_ids)))
+        hash_object = hashlib.md5(product_ids_str.encode())
+        cache_key = f'product_availability_{hash_object.hexdigest()}'
+
+        cached_data = self._get_cached_data(cache_key, cache_minutes)
+        if cached_data:
+            return cached_data
+
         relative_url = f'/warehouse-service/product-availability/{product_ids_str}'
 
         try:
             response = self._make_request(relative_url, ProductAvailabilityResponse)
+            self._save_to_cache(cache_key, response.response)
             return response.response
         except BrightPearlApiError as e:
             logger.error(f"Failed to retrieve product availability: {str(e)}")
@@ -124,13 +136,12 @@ class BrightPearlClient(BaseBrightPearlClient):
             metadata=ProductSearchMetaData(**metadata)
         )
 
-    def get_all_live_products(self, cache_dir: str = '_bp_cache_', cache_filename: str = 'live_products_cache.json') -> List[Dict[str, Any]]:
+    def get_all_live_products(self, cache_minutes: int = 60) -> List[Dict[str, Any]]:
         """
-        Retrieve all live products, using a cached version if available and not older than 1 hour.
+        Retrieve all live products, using a cached version if available and not older than specified minutes.
 
         Args:
-            cache_dir (str): Directory to store the cache file.
-            cache_filename (str): Name of the cache file.
+            cache_minutes (int): Number of minutes to consider the cache valid. Defaults to 60.
 
         Returns:
             List[Dict[str, Any]]: A list of all live products.
@@ -138,25 +149,15 @@ class BrightPearlClient(BaseBrightPearlClient):
         Raises:
             BrightPearlApiError: If there's an error with the API request.
         """
-        cache_path = os.path.join(cache_dir, cache_filename)
-
-        # Check if cache exists and is less than 1 hour old
-        if os.path.exists(cache_path):
-            cache_time = datetime.fromtimestamp(os.path.getmtime(cache_path))
-            if datetime.now() - cache_time < timedelta(hours=1):
-                logger.info("Using cached live products")
-                with open(cache_path, 'r') as cache_file:
-                    return json.load(cache_file)
+        cache_key = 'live_products'
+        cached_data = self._get_cached_data(cache_key, cache_minutes)
+        if cached_data:
+            return cached_data
 
         logger.info("Fetching fresh live products data")
         live_products = self._fetch_all_live_products()
 
-        # Ensure cache directory exists
-        os.makedirs(cache_dir, exist_ok=True)
-
-        # Save to cache
-        with open(cache_path, 'w') as cache_file:
-            json.dump(live_products, cache_file)
+        self._save_to_cache(cache_key, live_products)
 
         return live_products
 
@@ -208,25 +209,66 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         return live_products
 
-    # def _make_raw_request(self, relative_url: str) -> requests.Response:
-    #     url = f'{self._config.api_base_url}{relative_url}'
-    #     headers = {
-    #         "brightpearl-app-ref": self._config.brightpearl_app_ref,
-    #         "brightpearl-account-token": self._config.brightpearl_account_token
-    #     }
-    #     for attempt in range(self._config.max_retries):
-    #         try:
-    #             self._respect_rate_limit()
-    #             logger.debug(f"Making request to: {url}")
-    #             response = requests.get(url, headers=headers, timeout=self._config.timeout)
-    #             response.raise_for_status()
-    #             logger.info(f"Successfully retrieved data from: {url}")
-    #             return response
-    #         except requests.exceptions.RequestException as e:
-    #             self._handle_request_exception(e, attempt)
+    def warehouse_inventory_download(self, warehouse_ids: List[int]) -> Dict[int, Dict[int, int]]:
+        """
+        Download warehouse inventory for specified warehouse IDs.
 
-    #     logger.error(f"Max retries ({self._config.max_retries}) exceeded for URL: {url}")
-    #     raise BrightPearlApiError(f"Failed to retrieve data after {self._config.max_retries} attempts")
+        Args:
+            warehouse_ids (List[int]): List of warehouse IDs to fetch inventory for.
+
+        Returns:
+            Dict[int, Dict[int, int]]: A dictionary with warehouse IDs as keys and
+                                       dictionaries of product IDs and their quantities as values.
+        """
+        # Get all live products
+        live_products = self.get_all_live_products()
+        product_ids = [product['productId'] for product in live_products]
+
+        # Fetch inventory data
+        inventory_data = self._fetch_inventory_data(product_ids)
+
+        # Filter inventory data for requested warehouse IDs
+        filtered_inventory = {
+            warehouse_id: {
+                product_id: warehouse_data.get(warehouse_id, 0)
+                for product_id, warehouse_data in inventory_data.items()
+                if warehouse_id in warehouse_data
+            }
+            for warehouse_id in warehouse_ids
+        }
+
+        return filtered_inventory
+
+    def _fetch_inventory_data(self, product_ids: List[int]) -> Dict[int, Dict[int, int]]:
+        """
+        Fetch inventory data for given product IDs.
+
+        Args:
+            product_ids (List[int]): List of product IDs to fetch inventory for.
+
+        Returns:
+            Dict[int, Dict[int, int]]: A dictionary with product IDs as keys and
+                                       dictionaries of warehouse IDs and quantities as values.
+        """
+        inventory_data = {}
+        batch_size = 500
+        total_batches = math.ceil(len(product_ids) / batch_size)
+
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min((batch_num + 1) * batch_size, len(product_ids))
+            batch_product_ids = product_ids[start_idx:end_idx]
+
+            logger.info(f"Fetching inventory data for batch {batch_num + 1}/{total_batches}")
+            batch_availability = self.get_product_availability(batch_product_ids)
+
+            for product_id, availability in batch_availability.items():
+                inventory_data[int(product_id)] = {
+                    int(warehouse_id): warehouse_info['onHand']
+                    for warehouse_id, warehouse_info in availability['warehouses'].items()
+                }
+
+        return inventory_data
 
     def _handle_request_exception(self, e: requests.exceptions.RequestException, attempt: int):
         if isinstance(e, requests.exceptions.Timeout):

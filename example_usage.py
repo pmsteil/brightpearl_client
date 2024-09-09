@@ -6,7 +6,7 @@ from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
-ENABLE_LOGGING = True
+ENABLE_LOGGING = False
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -30,6 +30,28 @@ def main():
     )
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
+
+    # Test warehouse inventory download
+    print("\nTesting warehouse inventory download...")
+    try:
+        warehouse_id = 18
+        inventory = client.warehouse_inventory_download([warehouse_id])
+        print(f"Inventory: {inventory}")
+        print(f"Retrieved inventory for warehouse {warehouse_id}:")
+        print(f"  Total products with inventory: {len(inventory[warehouse_id])}")
+        print("  Sample of inventory data:")
+        for product_id, quantity in list(inventory[warehouse_id].items())[:5]:
+            print(f"    Product ID: {product_id}, Quantity: {quantity}")
+    except BrightPearlApiError as e:
+        print(f"API error: {e}")
+        print("Please check the following:")
+        print("1. The warehouse ID is valid and exists in your BrightPearl account.")
+        print("2. You have the necessary permissions to access inventory data.")
+        print("3. The API endpoint is correct for your BrightPearl account.")
+    except Exception as e:
+        raise e
+
+    exit(0)
 
     # Get all live products (with caching)
     print("\nRetrieving all live products...")

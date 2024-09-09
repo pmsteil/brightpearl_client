@@ -4,6 +4,9 @@ from requests.exceptions import Timeout, HTTPError, RequestException
 import logging
 from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationError
 from typing import Dict, Any, List, Optional, Union, Type, TypeVar
+import os
+import json
+from datetime import datetime, timedelta
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -69,7 +72,7 @@ class BrightPearlApiResponse(BaseModel):
 
 class BaseBrightPearlClient:
     def __init__(self, api_base_url: str, brightpearl_app_ref: str, brightpearl_account_token: str,
-                 timeout: int = 15, max_retries: int = 3, rate_limit: float = 1.0) -> None:
+                 timeout: int = 30, max_retries: int = 3, rate_limit: float = 1):
         self._config = self._initialize_config(
             api_base_url=api_base_url,
             brightpearl_app_ref=brightpearl_app_ref,
@@ -79,6 +82,8 @@ class BaseBrightPearlClient:
             rate_limit=rate_limit
         )
         self._last_request_time = 0.0
+        self._cache_dir = '_bp_cache_'
+        os.makedirs(self._cache_dir, exist_ok=True)
 
     def _initialize_config(self, **kwargs):
         try:
@@ -154,3 +159,36 @@ class BaseBrightPearlClient:
 
         logger.info(f"Parsed {len(parsed_results)} results")
         return parsed_results
+
+    def _get_cached_data(self, cache_key: str, cache_minutes: int) -> Optional[Any]:
+        """
+        Retrieve cached data if it exists and is not older than specified minutes.
+
+        Args:
+            cache_key (str): Key to identify the cached data.
+            cache_minutes (int): Number of minutes to consider the cache valid.
+
+        Returns:
+            Optional[Any]: Cached data if valid, None otherwise.
+        """
+        cache_file = os.path.join(self._cache_dir, f'{cache_key}_cache.json')
+        if os.path.exists(cache_file):
+            cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
+            if datetime.now() - cache_time < timedelta(minutes=cache_minutes):
+                logger.info(f"Using cached data for {cache_key}")
+                with open(cache_file, 'r') as cache_file:
+                    return json.load(cache_file)
+        return None
+
+    def _save_to_cache(self, cache_key: str, data: Any) -> None:
+        """
+        Save data to cache.
+
+        Args:
+            cache_key (str): Key to identify the cached data.
+            data (Any): Data to be cached.
+        """
+        cache_file = os.path.join(self._cache_dir, f'{cache_key}_cache.json')
+        with open(cache_file, 'w') as cache_file:
+            json.dump(data, cache_file)
+        logger.info(f"Saved data to cache for {cache_key}")
