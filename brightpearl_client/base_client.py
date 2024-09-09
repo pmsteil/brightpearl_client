@@ -1,9 +1,11 @@
 import time
 import requests
+from requests.exceptions import Timeout, HTTPError, RequestException
 import logging
 from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationError
-from typing import Dict, Any, List, Optional, Union
-from requests.exceptions import RequestException, Timeout, HTTPError
+from typing import Dict, Any, List, Optional, Union, Type, TypeVar
+
+T = TypeVar('T', bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +100,7 @@ class BaseBrightPearlClient:
             time.sleep(sleep_time)
         self._last_request_time = time.time()
 
-    def _make_request(self, relative_url: str) -> BrightPearlApiResponse:
+    def _make_request(self, relative_url: str, response_model: Type[T]) -> T:
         url = f'{self._config.api_base_url}{relative_url}'
         headers = {
             "brightpearl-app-ref": self._config.brightpearl_app_ref,
@@ -111,7 +113,7 @@ class BaseBrightPearlClient:
                 response = requests.get(url, headers=headers, timeout=self._config.timeout)
                 response.raise_for_status()
                 logger.info(f"Successfully retrieved data from: {url}")
-                return BrightPearlApiResponse(**response.json())
+                return response_model(**response.json())
             except Timeout:
                 logger.warning(f"Request timed out (attempt {attempt + 1}/{self._config.max_retries})")
             except HTTPError as http_err:

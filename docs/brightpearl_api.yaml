@@ -122,6 +122,7 @@ brightpearl_api:
 
         product_availability:
           methods: [GET]
+          endpoint: "/warehouse-service/product-availability/{PRODUCT-ID-SET}"
           description: "Allows you to query the availability of a set of products."
 
         reservation:
