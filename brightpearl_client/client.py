@@ -12,22 +12,55 @@ Next it will support warehouse inventory download and upload.
 import requests
 import logging
 import time
-from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationError
+from typing import Dict, Any, List, Optional, Union
 from requests.exceptions import RequestException, Timeout, HTTPError
 
 logger = logging.getLogger(__name__)
 
+class BrightPearlClientError(Exception):
+    """Custom exception for BrightPearl client configuration errors."""
+    pass
+
+class BrightPearlClientConfig(BaseModel):
+    api_base_url: HttpUrl = Field(..., description="The base URL for the BrightPearl API")
+    brightpearl_app_ref: str = Field(..., description="The BrightPearl application reference")
+    brightpearl_account_token: str = Field(..., description="The BrightPearl account token")
+    timeout: int = Field(15, description="Timeout for API requests in seconds")
+    max_retries: int = Field(3, description="Maximum number of retries for failed requests")
+    rate_limit: float = Field(1.0, description="Minimum time (in seconds) between API requests")
+
+    @field_validator('api_base_url', 'brightpearl_app_ref', 'brightpearl_account_token', 'timeout', 'max_retries', 'rate_limit')
+    @classmethod
+    def check_not_none(cls, v):
+        if v is None:
+            raise ValueError("This field cannot be None")
+        return v
+
+    @field_validator('brightpearl_app_ref', 'brightpearl_account_token')
+    @classmethod
+    def check_not_empty(cls, v):
+        if not v:
+            raise ValueError("This field cannot be empty")
+        return v
+
+    @field_validator('timeout', 'max_retries')
+    @classmethod
+    def check_positive_int(cls, v):
+        if v <= 0:
+            raise ValueError("This field must be a positive integer")
+        return v
+
+    @field_validator('rate_limit')
+    @classmethod
+    def check_positive_float(cls, v):
+        if v <= 0:
+            raise ValueError("This field must be a positive number")
+        return v
+
 class OrderResult(BaseModel):
     """
     Represents a single order result from the BrightPearl API.
-
-    Attributes:
-        orderId (int): The unique identifier for the order.
-        order_type_id (int): The type identifier for the order.
-        contact_id (int): The contact identifier associated with the order.
-        order_status_id (int): The status identifier for the order.
-        order_stock_status_id (int): The stock status identifier for the order.
     """
     orderId: int
     order_type_id: int
@@ -42,10 +75,10 @@ class OrderResult(BaseModel):
         Create an OrderResult instance from a list of values.
 
         Args:
-            data (List[Any]): A list containing order data.
+            data: A list containing order data.
 
         Returns:
-            OrderResult: An instance of OrderResult.
+            An OrderResult instance.
         """
         return cls(
             orderId=data[0],
@@ -59,18 +92,19 @@ class OrderResult(BaseModel):
 class OrderResponse(BaseModel):
     """
     Represents the response containing order results from the BrightPearl API.
-
-    Attributes:
-        results (List[List[Any]]): A list of lists containing order data.
     """
     results: List[List[Any]]
+
+    @field_validator('results')
+    @classmethod
+    def check_results(cls, v):
+        if not isinstance(v, list):
+            return []
+        return v
 
 class BrightPearlApiResponse(BaseModel):
     """
     Represents the full API response from BrightPearl.
-
-    Attributes:
-        response (OrderResponse): The order response data.
     """
     response: OrderResponse
 
@@ -84,45 +118,64 @@ class BrightPearlClient:
 
     This client provides methods to retrieve and parse order data from the BrightPearl API.
     It handles authentication, rate limiting, and error handling.
-
-    Attributes:
-        api_url (str): The base URL for the BrightPearl API.
-        api_headers (Dict[str, str]): Headers to be sent with each request.
-        timeout (int): Timeout for API requests in seconds.
-        max_retries (int): Maximum number of retries for failed requests.
-        rate_limit (float): Minimum time (in seconds) between API requests.
-        last_request_time (float): Timestamp of the last API request.
     """
 
-    def __init__(self, api_url: str, api_headers: Dict[str, str], timeout: int = 15, max_retries: int = 3, rate_limit: float = 1.0) -> None:
+    def __init__(self, api_base_url: str, brightpearl_app_ref: str, brightpearl_account_token: str,
+                 timeout: int = 15, max_retries: int = 3, rate_limit: float = 1.0) -> None:
         """
         Initialize the BrightPearl client.
 
         Args:
-            api_url (str): The base URL for the BrightPearl API.
-            api_headers (Dict[str, str]): Headers to be sent with each request.
-            timeout (int, optional): Timeout for API requests in seconds. Defaults to 15.
-            max_retries (int, optional): Maximum number of retries for failed requests. Defaults to 3.
-            rate_limit (float, optional): Minimum time (in seconds) between API requests. Defaults to 1.0.
+            api_base_url: The base URL for the BrightPearl API.
+            brightpearl_app_ref: The BrightPearl application reference.
+            brightpearl_account_token: The BrightPearl account token.
+            timeout: Timeout for API requests in seconds. Defaults to 15.
+            max_retries: Maximum number of retries for failed requests. Defaults to 3.
+            rate_limit: Minimum time (in seconds) between API requests. Defaults to 1.0.
+
+        Raises:
+            BrightPearlClientError: If any of the input parameters are invalid.
         """
-        self.api_url: str = api_url.rstrip('/')
-        self.api_headers: Dict[str, str] = api_headers
-        self.timeout: int = timeout
-        self.max_retries: int = max_retries
-        self.rate_limit: float = rate_limit
+        try:
+            config = BrightPearlClientConfig(
+                api_base_url=api_base_url,
+                brightpearl_app_ref=brightpearl_app_ref,
+                brightpearl_account_token=brightpearl_account_token,
+                timeout=timeout,
+                max_retries=max_retries,
+                rate_limit=rate_limit
+            )
+        except ValidationError as e:
+            error_messages = []
+            for error in e.errors():
+                field = error["loc"][0]
+                message = error["msg"]
+                error_messages.append(f"'{field}': {message}")
+            raise BrightPearlClientError("Error initializing BrightPearlClient:\n" + "\n".join(error_messages))
+
+        self.api_url: str = str(config.api_base_url).rstrip('/')
+        self.api_headers: Dict[str, str] = {
+            "brightpearl-app-ref": config.brightpearl_app_ref,
+            "brightpearl-account-token": config.brightpearl_account_token
+        }
+        self.timeout: int = config.timeout
+        self.max_retries: int = config.max_retries
+        self.rate_limit: float = config.rate_limit
         self.last_request_time: float = 0.0
 
         logger.info(f"Initialized BrightPearlClient with API URL: {self.api_url}")
 
-    def get_orders_by_status(self, status_id: int) -> BrightPearlApiResponse:
+    def get_orders_by_status(self, status_id: int, parse_api_results: bool = True) -> Union[BrightPearlApiResponse, List[OrderResult]]:
         """
         Retrieve orders by status ID.
 
         Args:
-            status_id (int): The status ID to filter orders by.
+            status_id: The status ID to filter orders by.
+            parse_api_results: Whether to parse the API results into OrderResult objects. Defaults to True.
 
         Returns:
-            BrightPearlApiResponse: An object containing the order data.
+            If parse_api_results is True, returns a list of OrderResult objects.
+            Otherwise, returns the raw BrightPearlApiResponse.
 
         Raises:
             ValueError: If status_id is not a positive integer.
@@ -134,7 +187,11 @@ class BrightPearlClient:
 
         logger.info(f"Retrieving orders with status ID: {status_id}")
         relative_url: str = f'/order-service/order-search?orderStatusId={status_id}'
-        return self._make_request(relative_url)
+        response = self._make_request(relative_url)
+
+        if parse_api_results:
+            return self._parse_api_results(response)
+        return response
 
     def _respect_rate_limit(self) -> None:
         """
@@ -155,7 +212,7 @@ class BrightPearlClient:
         Make a GET request to the BrightPearl API.
 
         Args:
-            relative_url (str): The relative URL for the API endpoint.
+            relative_url: The relative URL for the API endpoint.
 
         Returns:
             BrightPearlApiResponse: An object containing the API response data.
@@ -189,19 +246,55 @@ class BrightPearlClient:
                     raise BrightPearlApiError(f"Unexpected HTTP error: {http_err}")
             except RequestException as e:
                 logger.error(f"Request failed: {str(e)}")
+                if attempt == self.max_retries - 1:
+                    raise BrightPearlApiError(f"Request failed after {self.max_retries} attempts: {str(e)}")
 
         logger.error(f"Max retries ({self.max_retries}) exceeded for URL: {url}")
         raise BrightPearlApiError(f"Failed to retrieve data after {self.max_retries} attempts")
 
-    def parse_order_results(self, api_response: BrightPearlApiResponse) -> List[OrderResult]:
+    def _parse_api_results(self, api_response: BrightPearlApiResponse) -> List[OrderResult]:
         """
-        Parse the order results from the API response.
+        Parse the API results from BrightPearl's format into a list of OrderResult objects.
+
+        This method detects if the data is in BrightPearl's typical format (a list of lists) and converts
+        it into more usable OrderResult objects.
 
         Args:
-            api_response (BrightPearlApiResponse): The BrightPearlApiResponse object to parse.
+            api_response: The raw API response from BrightPearl.
 
         Returns:
-            List[OrderResult]: A list of OrderResult objects.
+            A list of OrderResult objects.
+
+        Example:
+            BrightPearl typically returns data in this format:
+            {
+                "response": {
+                    "results": [
+                        [1001, 1, 5001, 3, 2],
+                        [1002, 2, 5002, 4, 1],
+                        ...
+                    ]
+                }
+            }
+
+            This method converts it to:
+            [
+                OrderResult(orderId=1001, order_type_id=1, contact_id=5001, order_status_id=3, order_stock_status_id=2),
+                OrderResult(orderId=1002, order_type_id=2, contact_id=5002, order_status_id=4, order_stock_status_id=1),
+                ...
+            ]
         """
-        logger.info(f"Parsing {len(api_response.response.results)} order results")
-        return [OrderResult.from_list(result) for result in api_response.response.results]
+        logger.info(f"Parsing API results")
+        if not isinstance(api_response.response.results, list):
+            logger.warning("API response is not in the expected format")
+            return []
+
+        parsed_results = []
+        for result in api_response.response.results:
+            if isinstance(result, list) and len(result) >= 5:
+                parsed_results.append(OrderResult.from_list(result))
+            else:
+                logger.warning(f"Unexpected result format: {result}")
+
+        logger.info(f"Parsed {len(parsed_results)} results")
+        return parsed_results
