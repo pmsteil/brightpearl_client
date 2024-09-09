@@ -31,24 +31,20 @@ def main():
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
 
-    # Get all live products
+    # Get all live products (with caching)
     print("\nRetrieving all live products...")
     try:
         live_products = client.get_all_live_products()
-        print(f"Retrieved {len(live_products)} live products")
+        print(f"Retrieved {len(live_products)} live products, first 5 shown below:")
 
         # Print details of the first 5 live products
         for product in live_products[:5]:
             print(f"  Product ID: {product['productId']}")
             print(f"  Name: {product['productName']}")
             print(f"  SKU: {product['SKU']}")
-            print(f"  Created On: {product['createdOn']}")
-            print("  ---")
+            print(f"  UPC: {product['UPC']}")
+            print("")
 
-        # Save the full list of live products to a JSON file
-        with open('live_products.json', 'w') as f:
-            json.dump(live_products, f, indent=2, default=str)
-        print("Full list of live products saved to 'live_products.json'")
 
     except BrightPearlApiError as e:
         print(f"API error: {e}")
@@ -57,6 +53,9 @@ def main():
         print("2. The API endpoint is correct for your BrightPearl account.")
     except Exception as e:
         print(f"Unexpected error: {e}")
+
+
+
 
     # Test product search
     print("\nTesting product search...")
@@ -86,7 +85,6 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {e}")
 
-    # exit(0)
 
     # Test product availability retrieval
     print("\nTesting product availability retrieval...")

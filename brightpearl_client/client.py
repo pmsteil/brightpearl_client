@@ -14,6 +14,9 @@ from typing import Union, List, Dict, Any, Optional
 import logging
 from pydantic import BaseModel, Field
 import requests  # Add this import
+import os
+import json
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -121,10 +124,13 @@ class BrightPearlClient(BaseBrightPearlClient):
             metadata=ProductSearchMetaData(**metadata)
         )
 
-    def get_all_live_products(self) -> List[Dict[str, Any]]:
+    def get_all_live_products(self, cache_dir: str = '_bp_cache_', cache_filename: str = 'live_products_cache.json') -> List[Dict[str, Any]]:
         """
-        Retrieve all live products by paginating through all product search results
-        and filtering for products with 'LIVE' status.
+        Retrieve all live products, using a cached version if available and not older than 1 hour.
+
+        Args:
+            cache_dir (str): Directory to store the cache file.
+            cache_filename (str): Name of the cache file.
 
         Returns:
             List[Dict[str, Any]]: A list of all live products.
@@ -132,11 +138,37 @@ class BrightPearlClient(BaseBrightPearlClient):
         Raises:
             BrightPearlApiError: If there's an error with the API request.
         """
+        cache_path = os.path.join(cache_dir, cache_filename)
+
+        # Check if cache exists and is less than 1 hour old
+        if os.path.exists(cache_path):
+            cache_time = datetime.fromtimestamp(os.path.getmtime(cache_path))
+            if datetime.now() - cache_time < timedelta(hours=1):
+                logger.info("Using cached live products")
+                with open(cache_path, 'r') as cache_file:
+                    return json.load(cache_file)
+
+        logger.info("Fetching fresh live products data")
+        live_products = self._fetch_all_live_products()
+
+        # Ensure cache directory exists
+        os.makedirs(cache_dir, exist_ok=True)
+
+        # Save to cache
+        with open(cache_path, 'w') as cache_file:
+            json.dump(live_products, cache_file)
+
+        return live_products
+
+    def _fetch_all_live_products(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all live products from the API.
+        """
         all_products = []
         first_result = 1
-        products_per_page = 500  # Adjust this value as needed
+        products_per_page = 500
 
-        logger.info(f"Starting retrieval of all live products")
+        logger.info("Starting retrieval of all live products")
 
         while True:
             try:
