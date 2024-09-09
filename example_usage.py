@@ -1,6 +1,13 @@
 import os
+import logging
 from dotenv import load_dotenv
-from brightpearl_client import BrightPearlClient, BrightPearlApiError
+from brightpearl_client import BrightPearlClient
+
+# Control logging to screen
+ENABLE_LOGGING = False
+
+if ENABLE_LOGGING:
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,42 +24,26 @@ def main():
         brightpearl_account_token=brightpearl_account_token,
         timeout=30,
         max_retries=5,
-        rate_limit=1.5
+        rate_limit=1
     )
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
 
-    # Test getting orders by status
-    try:
-        # Get orders with parsed results (default behavior)
-        parsed_orders = client.get_orders_by_status(37)
-        print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 37:")
-        for order in parsed_orders[:5]:  # Print first 5 orders
-            print(f"  Order ID: {order.orderId}, Type: {order.order_type_id}, Status: {order.order_status_id}")
+    # Get orders with parsed results
+    parsed_orders = client.get_orders_by_status(23)
+    print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 23:")
+    for order in parsed_orders[:5]:  # Print first 5 orders
+        print(f"  Order ID: {order.orderId}, Type: {order.order_type_id}, Status: {order.order_status_id}")
 
-        # Get orders without parsing
-        raw_response = client.get_orders_by_status(38, parse_api_results=False)
-        print(f"\nRetrieved {len(raw_response.response.results)} raw orders with status 38")
-
-    except ValueError as e:
-        print(f"Invalid input: {e}")
-    except BrightPearlApiError as e:
-        print(f"API error: {e}")
-
-    # Test error handling
-    try:
-        client.get_orders_by_status(-1)
-    except ValueError as e:
-        print(f"\nCaught expected ValueError: {e}")
+    # Get orders without parsing
+    raw_response = client.get_orders_by_status(38, parse_api_results=False)
+    print(f"\nRetrieved {len(raw_response.response.results)} raw orders with status 38")
 
     # Test rate limiting
     print("\nTesting rate limiting...")
     for i in range(5):
-        try:
-            orders = client.get_orders_by_status(37)
-            print(f"  Request {i+1}: Retrieved {len(orders)} orders")
-        except BrightPearlApiError as e:
-            print(f"  Request {i+1}: API error: {e}")
+        orders = client.get_orders_by_status(23)
+        print(f"  Request {i+1}: Retrieved {len(orders)} orders")
 
 if __name__ == "__main__":
     main()

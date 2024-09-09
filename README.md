@@ -6,17 +6,15 @@ A Python client for interacting with the BrightPearl API.
 
 To install the BrightPearl client, you can use pip:
 
-|||
+```
 pipenv install git+https://github.com/pmsteil/brightpearl_client.git
-|||
+```
 
-## Usage
+### Connecting to BrightPearl
 
-Here are some examples of how to use the BrightPearl client:
+Here's a basic example of how to use the BrightPearl client:
 
-### Initializing the client
-
-|||
+```
 from brightpearl_client import BrightPearlClient
 
 api_base_url = "https://use1.brightpearlconnect.com/public-api/nisolo/"
@@ -35,7 +33,7 @@ client = BrightPearlClient(
     max_retries=5,  # Optional: Maximum number of retries for failed requests (default: 3)
     rate_limit=1.5  # Optional: Minimum time in seconds between API requests (default: 1.0)
 )
-|||
+```
 
 Parameters:
 - `api_base_url` (required): The base URL for the BrightPearl API.
@@ -47,24 +45,8 @@ Parameters:
 
 ### Retrieving orders by status
 
-|||
-try:
-    # Get parsed results (default behavior)
-    parsed_orders = client.get_orders_by_status(37)
-    print(f"Retrieved {len(parsed_orders)} parsed orders")
 
-    # Get raw API response
-    raw_response = client.get_orders_by_status(37, parse_api_results=False)
-    print(f"Retrieved {len(raw_response.response.results)} raw orders")
-except ValueError as e:
-    print(f"Invalid input: {e}")
-except BrightPearlApiError as e:
-    print(f"API error: {e}")
-|||
-
-### Parsing order results
-
-|||
+```
 parsed_orders = client.get_orders_by_status(37)
 
 for order in parsed_orders:
@@ -74,13 +56,13 @@ for order in parsed_orders:
     print(f"Order Status ID: {order.order_status_id}")
     print(f"Order Stock Status ID: {order.order_stock_status_id}")
     print("---")
-|||
+```
 
 ### Error handling
 
 The client raises `BrightPearlApiError` for API-related errors:
 
-|||
+```
 try:
     response = client.get_orders_by_status(37)
 except BrightPearlApiError as e:
@@ -90,7 +72,7 @@ except BrightPearlApiError as e:
         print("The BrightPearl API is experiencing issues")
     else:
         print(f"An unexpected error occurred: {e}")
-|||
+```
 
 ## Development
 
