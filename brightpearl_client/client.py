@@ -1,8 +1,19 @@
+"""
+BrightPearl API Client
+
+This module provides a client for interacting with the BrightPearl API.
+It allows you to retrieve and parse order data from the BrightPearl API.
+
+It is a work in progress and is not yet fully functional.
+
+It only supports querying orders by status id at the moment.
+Next it will support warehouse inventory download and upload.
+"""
 import requests
 import logging
 import time
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from requests.exceptions import RequestException, Timeout, HTTPError
 
 logger = logging.getLogger(__name__)
@@ -10,6 +21,13 @@ logger = logging.getLogger(__name__)
 class OrderResult(BaseModel):
     """
     Represents a single order result from the BrightPearl API.
+
+    Attributes:
+        orderId (int): The unique identifier for the order.
+        order_type_id (int): The type identifier for the order.
+        contact_id (int): The contact identifier associated with the order.
+        order_status_id (int): The status identifier for the order.
+        order_stock_status_id (int): The stock status identifier for the order.
     """
     orderId: int
     order_type_id: int
@@ -23,8 +41,11 @@ class OrderResult(BaseModel):
         """
         Create an OrderResult instance from a list of values.
 
-        :param data: A list containing order data.
-        :return: An OrderResult instance.
+        Args:
+            data (List[Any]): A list containing order data.
+
+        Returns:
+            OrderResult: An instance of OrderResult.
         """
         return cls(
             orderId=data[0],
@@ -38,12 +59,18 @@ class OrderResult(BaseModel):
 class OrderResponse(BaseModel):
     """
     Represents the response containing order results from the BrightPearl API.
+
+    Attributes:
+        results (List[List[Any]]): A list of lists containing order data.
     """
     results: List[List[Any]]
 
 class BrightPearlApiResponse(BaseModel):
     """
     Represents the full API response from BrightPearl.
+
+    Attributes:
+        response (OrderResponse): The order response data.
     """
     response: OrderResponse
 
@@ -65,10 +92,6 @@ class BrightPearlClient:
         max_retries (int): Maximum number of retries for failed requests.
         rate_limit (float): Minimum time (in seconds) between API requests.
         last_request_time (float): Timestamp of the last API request.
-
-    Methods:
-        get_orders_by_status: Retrieve orders by status ID.
-        parse_order_results: Parse the order results from the API response.
     """
 
     def __init__(self, api_url: str, api_headers: Dict[str, str], timeout: int = 15, max_retries: int = 3, rate_limit: float = 1.0) -> None:
@@ -76,11 +99,11 @@ class BrightPearlClient:
         Initialize the BrightPearl client.
 
         Args:
-            api_url: The base URL for the BrightPearl API.
-            api_headers: Headers to be sent with each request.
-            timeout: Timeout for API requests in seconds.
-            max_retries: Maximum number of retries for failed requests.
-            rate_limit: Minimum time (in seconds) between API requests.
+            api_url (str): The base URL for the BrightPearl API.
+            api_headers (Dict[str, str]): Headers to be sent with each request.
+            timeout (int, optional): Timeout for API requests in seconds. Defaults to 15.
+            max_retries (int, optional): Maximum number of retries for failed requests. Defaults to 3.
+            rate_limit (float, optional): Minimum time (in seconds) between API requests. Defaults to 1.0.
         """
         self.api_url: str = api_url.rstrip('/')
         self.api_headers: Dict[str, str] = api_headers
@@ -95,14 +118,11 @@ class BrightPearlClient:
         """
         Retrieve orders by status ID.
 
-        This method makes a GET request to the BrightPearl API to retrieve orders
-        with the specified status ID.
-
         Args:
-            status_id: The status ID to filter orders by.
+            status_id (int): The status ID to filter orders by.
 
         Returns:
-            A BrightPearlApiResponse object containing the order data.
+            BrightPearlApiResponse: An object containing the order data.
 
         Raises:
             ValueError: If status_id is not a positive integer.
@@ -117,7 +137,11 @@ class BrightPearlClient:
         return self._make_request(relative_url)
 
     def _respect_rate_limit(self) -> None:
-        """Ensure the rate limit is respected before making a request."""
+        """
+        Ensure the rate limit is respected before making a request.
+
+        This method will sleep if necessary to maintain the minimum time between requests.
+        """
         current_time = time.time()
         time_since_last_request = current_time - self.last_request_time
         if time_since_last_request < self.rate_limit:
@@ -130,9 +154,14 @@ class BrightPearlClient:
         """
         Make a GET request to the BrightPearl API.
 
-        :param relative_url: The relative URL for the API endpoint.
-        :return: A BrightPearlApiResponse object containing the API response data.
-        :raises BrightPearlApiError: If the request fails after max_retries attempts.
+        Args:
+            relative_url (str): The relative URL for the API endpoint.
+
+        Returns:
+            BrightPearlApiResponse: An object containing the API response data.
+
+        Raises:
+            BrightPearlApiError: If the request fails after max_retries attempts.
         """
         url: str = f'{self.api_url}{relative_url}'
         for attempt in range(self.max_retries):
@@ -168,8 +197,11 @@ class BrightPearlClient:
         """
         Parse the order results from the API response.
 
-        :param api_response: The BrightPearlApiResponse object to parse.
-        :return: A list of OrderResult objects.
+        Args:
+            api_response (BrightPearlApiResponse): The BrightPearlApiResponse object to parse.
+
+        Returns:
+            List[OrderResult]: A list of OrderResult objects.
         """
         logger.info(f"Parsing {len(api_response.response.results)} order results")
         return [OrderResult.from_list(result) for result in api_response.response.results]

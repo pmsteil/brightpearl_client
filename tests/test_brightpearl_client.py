@@ -1,4 +1,16 @@
-import os
+"""
+Unit tests for the BrightPearlClient module.
+
+This will test:
+    - get_orders_by_status
+    - make_request
+    - parse_order_results
+    - rate_limit_exponential_backoff
+    - client_error_handling
+    - server_error_handling
+    - max_retries_exceeded
+    - logging
+"""
 import unittest
 import io
 import logging
@@ -6,10 +18,9 @@ from unittest.mock import patch, MagicMock
 from dotenv import load_dotenv
 from brightpearl_client.client import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError
 import requests
-import time
 
 # Load environment variables from .env file
-load_dotenv()
+# load_dotenv()
 
 class TestBrightPearlClientMocked(unittest.TestCase):
     def setUp(self):
