@@ -10,7 +10,7 @@ To install the BrightPearl client, you can use pip:
 pipenv install git+https://github.com/pmsteil/brightpearl_client.git
 ```
 
-### Connecting to BrightPearl
+## Usage
 
 Here's a basic example of how to use the BrightPearl client:
 

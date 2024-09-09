@@ -13,10 +13,9 @@ This will test:
 """
 import os
 import unittest
-import logging
 from unittest.mock import patch, MagicMock
-from brightpearl_client.client import BrightPearlClient, BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
-from pydantic import ValidationError
+from brightpearl_client.client import BrightPearlClient
+from brightpearl_client.base_client import BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
 import requests
 
 # Remove the dotenv import if it's not being used
@@ -53,7 +52,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
             BrightPearlClient(self.api_base_url, self.brightpearl_app_ref, self.brightpearl_account_token, rate_limit=0)
         self.assertIn("Error initializing BrightPearlClient", str(context.exception))
 
-    @patch('brightpearl_client.client.requests.get')
+    @patch('requests.get')
     def test_get_orders_by_status_parsed(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {"response": {"results": [[1, 2, 3, 4, 5]]}}
@@ -66,7 +65,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         self.assertIsInstance(result[0], OrderResult)
         self.assertEqual(result[0].orderId, 1)
 
-    @patch('brightpearl_client.client.requests.get')
+    @patch('requests.get')
     def test_get_orders_by_status_unparsed(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {"response": {"results": [[1, 2, 3, 4, 5]]}}
@@ -82,7 +81,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.client.get_orders_by_status("42")
 
-    @patch('brightpearl_client.client.requests.get')
+    @patch('requests.get')
     def test_make_request_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.RequestException("API Error")
 
@@ -92,7 +91,8 @@ class TestBrightPearlClientMocked(unittest.TestCase):
     def test_api_url_trailing_slash(self):
         client = BrightPearlClient(self.api_base_url + "/", self.brightpearl_app_ref, self.brightpearl_account_token)
         expected_url = self.api_base_url.rstrip('/')
-        self.assertEqual(client.api_url, expected_url)
+        actual_url = str(client._config.api_base_url).rstrip('/')
+        self.assertEqual(actual_url, expected_url)
 
     def test_parse_api_results(self):
         mock_response = BrightPearlApiResponse(response=OrderResponse(results=[[1, 2, 3, 4, 5]]))

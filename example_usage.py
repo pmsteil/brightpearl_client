@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from brightpearl_client import BrightPearlClient
 
 # Control logging to screen
-ENABLE_LOGGING = False
+ENABLE_LOGGING = True
 
 if ENABLE_LOGGING:
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
