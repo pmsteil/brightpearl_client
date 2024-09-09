@@ -6,10 +6,10 @@ from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
-ENABLE_LOGGING = False
+ENABLE_LOGGING = True
 
-if ENABLE_LOGGING:
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Load environment variables from .env file
 load_dotenv()
@@ -31,6 +31,32 @@ def main():
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
 
+    # Get all live products
+    print("\nRetrieving all live products...")
+    try:
+        live_products = client.get_all_live_products()
+        print(f"Retrieved {len(live_products)} live products")
+
+        # Print details of the first 5 live products
+        for product in live_products[:5]:
+            print(f"  Product ID: {product['productId']}")
+            print(f"  Name: {product['productName']}")
+            print(f"  SKU: {product['SKU']}")
+            print(f"  Created On: {product['createdOn']}")
+            print("  ---")
+
+        # Save the full list of live products to a JSON file
+        with open('live_products.json', 'w') as f:
+            json.dump(live_products, f, indent=2, default=str)
+        print("Full list of live products saved to 'live_products.json'")
+
+    except BrightPearlApiError as e:
+        print(f"API error: {e}")
+        print("Please check the following:")
+        print("1. You have the necessary permissions to access product data.")
+        print("2. The API endpoint is correct for your BrightPearl account.")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
     # Test product search
     print("\nTesting product search...")
@@ -60,30 +86,27 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {e}")
 
-    exit(0)
+    # exit(0)
 
-    # Test warehouse inventory retrieval
-    print("\nTesting warehouse inventory retrieval...")
+    # Test product availability retrieval
+    print("\nTesting product availability retrieval...")
     try:
-        sync_warehouse_id = 18
         products = [1007, 1008]
-        inventory = client.get_warehouse_inventory( products )
-        print(f"Retrieved inventory for products {products}: {inventory}")
-        for product_id, product_info in inventory.items():
+        availability = client.get_product_availability(products)
+        print(f"Retrieved availability for products {products}:")
+        for product_id, product_info in availability.items():
             print(f"  Product ID: {product_id}")
-            # print(f"    Total in stock: {product_info['total']['inStock']}")
-            # print(f"    Total on hand: {product_info['total']['onHand']}")
-            # print(f"    Total allocated: {product_info['total']['allocated']}")
-            # print(f"    Total in transit: {product_info['total']['inTransit']}")
-            # print("    Warehouse breakdown:")
+            print(f"    Total in stock: {product_info['total']['inStock']}")
+            print(f"    Total on hand: {product_info['total']['onHand']}")
+            print(f"    Total allocated: {product_info['total']['allocated']}")
+            print(f"    Total in transit: {product_info['total']['inTransit']}")
+            print("    Warehouse breakdown:")
             for warehouse_id, warehouse_info in product_info['warehouses'].items():
-                warehouse_id = int(warehouse_id)
-                if sync_warehouse_id == warehouse_id:
-                    print(f"      Warehouse {warehouse_id}:")
-                    print(f"        In stock: {warehouse_info['inStock']}")
-                    print(f"        On hand: {warehouse_info['onHand']}")
-                    print(f"        Allocated: {warehouse_info['allocated']}")
-                    print(f"        In transit: {warehouse_info['inTransit']}")
+                print(f"      Warehouse {warehouse_id}:")
+                print(f"        In stock: {warehouse_info['inStock']}")
+                print(f"        On hand: {warehouse_info['onHand']}")
+                print(f"        Allocated: {warehouse_info['allocated']}")
+                print(f"        In transit: {warehouse_info['inTransit']}")
     except BrightPearlApiError as e:
         print(f"API error: {e}")
         print("Please check the following:")
@@ -93,7 +116,6 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {e}")
 
-    print( "exit for now...")
     exit(0)
 
     # Get orders with parsed results

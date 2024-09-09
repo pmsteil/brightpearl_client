@@ -17,6 +17,9 @@ import requests  # Add this import
 
 logger = logging.getLogger(__name__)
 
+class ProductAvailabilityResponse(BaseModel):
+    response: Dict[str, Any]
+
 class WarehouseInventoryResponse(BaseModel):
     response: Dict[str, Any]
 
@@ -58,15 +61,15 @@ class BrightPearlClient(BaseBrightPearlClient):
         response = self._make_request(relative_url, BrightPearlApiResponse)
         return self._parse_api_results(response) if parse_api_results else response
 
-    def get_warehouse_inventory(self, product_ids: List[int]) -> Dict:
+    def get_product_availability(self, product_ids: List[int]) -> Dict:
         """
-        Retrieve the inventory for specified products across all warehouses.
+        Retrieve the availability for specified products across all warehouses.
 
         Args:
             product_ids (List[int]): A list of product IDs to query.
 
         Returns:
-            Dict: A dictionary containing the inventory information for the specified products across all warehouses.
+            Dict: A dictionary containing the availability information for the specified products across all warehouses.
 
         Raises:
             ValueError: If product_ids is empty.
@@ -79,11 +82,11 @@ class BrightPearlClient(BaseBrightPearlClient):
         relative_url = f'/warehouse-service/product-availability/{product_ids_str}'
 
         try:
-            response = self._make_request(relative_url, WarehouseInventoryResponse)
+            response = self._make_request(relative_url, ProductAvailabilityResponse)
             return response.response
         except BrightPearlApiError as e:
-            logger.error(f"Failed to retrieve warehouse inventory: {str(e)}")
-            raise BrightPearlApiError(f"Failed to retrieve warehouse inventory for products {product_ids_str}: {str(e)}")
+            logger.error(f"Failed to retrieve product availability: {str(e)}")
+            raise BrightPearlApiError(f"Failed to retrieve product availability for products {product_ids_str}: {str(e)}")
 
     def search_products(self) -> FormattedProductSearchResponse:
         """
@@ -117,6 +120,61 @@ class BrightPearlClient(BaseBrightPearlClient):
             products=formatted_products,
             metadata=ProductSearchMetaData(**metadata)
         )
+
+    def get_all_live_products(self) -> List[Dict[str, Any]]:
+        """
+        Retrieve all live products by paginating through all product search results
+        and filtering for products with 'LIVE' status.
+
+        Returns:
+            List[Dict[str, Any]]: A list of all live products.
+
+        Raises:
+            BrightPearlApiError: If there's an error with the API request.
+        """
+        all_products = []
+        first_result = 1
+        products_per_page = 500  # Adjust this value as needed
+
+        logger.info(f"Starting retrieval of all live products")
+
+        while True:
+            try:
+                relative_url = f'/product-service/product-search?pageSize={products_per_page}&firstResult={first_result}'
+                logger.info(f"Retrieving products starting from result {first_result}")
+                response = self._make_request(relative_url, ProductSearchResponse)
+                formatted_response = self._format_product_search_response(response)
+
+                metadata = formatted_response.metadata
+                logger.info(f"Batch metadata:")
+                logger.info(f"  More pages available: {metadata.morePagesAvailable}")
+                logger.info(f"  Results available: {metadata.resultsAvailable}")
+                logger.info(f"  Results returned: {metadata.resultsReturned}")
+                logger.info(f"  First result: {metadata.firstResult}")
+                logger.info(f"  Last result: {metadata.lastResult}")
+
+                products_in_batch = len(formatted_response.products)
+                logger.info(f"Retrieved {products_in_batch} products in this batch")
+
+                all_products.extend(formatted_response.products)
+
+                total_products = len(all_products)
+                logger.info(f"Total products retrieved so far: {total_products}")
+
+                if total_products >= metadata.resultsAvailable or not metadata.morePagesAvailable:
+                    logger.info("All available products have been retrieved.")
+                    break
+
+                first_result = metadata.lastResult + 1
+
+            except BrightPearlApiError as e:
+                logger.error(f"Failed to retrieve products starting from result {first_result}: {str(e)}")
+                raise BrightPearlApiError(f"Failed to retrieve all products: {str(e)}")
+
+        live_products = [product for product in all_products if product.get('productStatus') == 'LIVE']
+        logger.info(f"Filtered {len(live_products)} live products out of {len(all_products)} total products")
+
+        return live_products
 
     # def _make_raw_request(self, relative_url: str) -> requests.Response:
     #     url = f'{self._config.api_base_url}{relative_url}'
