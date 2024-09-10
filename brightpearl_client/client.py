@@ -21,6 +21,7 @@ import math
 import hashlib
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)  # Set to WARNING to reduce output
 
 class ProductAvailabilityResponse(BaseModel):
     response: Dict[str, Any]
@@ -255,7 +256,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             end_idx = min((batch_num + 1) * batch_size, len(product_ids))
             batch_product_ids = product_ids[start_idx:end_idx]
 
-            logger.info(f"Fetching inventory data for batch {batch_num + 1}/{total_batches}")
+            logger.debug(f"Fetching inventory data for batch {batch_num + 1}/{total_batches}")
             batch_availability = self.get_product_availability(batch_product_ids)
 
             for product_id, availability in batch_availability.items():
