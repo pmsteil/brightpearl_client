@@ -230,9 +230,13 @@ class BrightPearlClient(BaseBrightPearlClient):
         for product_id, warehouse_data in inventory_data.items():
             if warehouse_id in warehouse_data:
                 product_info = product_data_map.get(product_id, {})
+                warehouse_inventory = warehouse_data[warehouse_id]
                 filtered_inventory[product_id] = {
                     **product_info,
-                    **warehouse_data[warehouse_id],
+                    'inventory_inStock': warehouse_inventory['inStock'],
+                    'inventory_onHand': warehouse_inventory['onHand'],
+                    'inventory_allocated': warehouse_inventory['allocated'],
+                    'inventory_inTransit': warehouse_inventory['inTransit'],
                     'warehouseId': warehouse_id
                 }
 

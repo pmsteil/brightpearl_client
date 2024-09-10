@@ -45,12 +45,10 @@ def main():
             print(f"    Product ID: {product_id}")
             print(f"    SKU: {product_data.get('SKU', 'N/A')}")
             print(f"    Name: {product_data.get('productName', 'N/A')}")
-            print(f"    In Stock: {product_data['inStock']}")
-            print(f"    On Hand: {product_data['onHand']}")
-            print(f"    Allocated: {product_data['allocated']}")
-            print(f"    In Transit: {product_data['inTransit']}")
-            # print(f"    Total In Stock: {product_data['total']['inStock']}")
-            # print(f"    Total On Hand: {product_data['total']['onHand']}")
+            print(f"    In Stock: {product_data['inventory_inStock']}")
+            print(f"    On Hand: {product_data['inventory_onHand']}")
+            print(f"    Allocated: {product_data['inventory_allocated']}")
+            print(f"    In Transit: {product_data['inventory_inTransit']}")
             print("    ---")
         # save the warehouse inventory to a separate JSON file
         with open(f'warehouse_inventory_{warehouse_id}.json', 'w') as f:
