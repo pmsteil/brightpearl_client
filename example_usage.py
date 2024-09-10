@@ -41,15 +41,20 @@ def main():
         print(f"Retrieved inventory for warehouse {warehouse_id}:")
         print(f"  Total products with inventory: {len(inventory)}")
         print("  Sample of inventory data:")
-        for product_id, inventory_data in list(inventory.items())[:3]:
+        for product_id, product_data in list(inventory.items())[:3]:
             print(f"    Product ID: {product_id}")
-            print(f"      In Stock: {inventory_data['inStock']}")
-            print(f"      On Hand: {inventory_data['onHand']}")
-            print(f"      Allocated: {inventory_data['allocated']}")
-            print(f"      In Transit: {inventory_data['inTransit']}")
+            print(f"    SKU: {product_data.get('SKU', 'N/A')}")
+            print(f"    Name: {product_data.get('productName', 'N/A')}")
+            print(f"    In Stock: {product_data['inStock']}")
+            print(f"    On Hand: {product_data['onHand']}")
+            print(f"    Allocated: {product_data['allocated']}")
+            print(f"    In Transit: {product_data['inTransit']}")
+            # print(f"    Total In Stock: {product_data['total']['inStock']}")
+            # print(f"    Total On Hand: {product_data['total']['onHand']}")
+            print("    ---")
         # save the warehouse inventory to a separate JSON file
         with open(f'warehouse_inventory_{warehouse_id}.json', 'w') as f:
-            json.dump(inventory, f, indent=2)
+            json.dump(inventory, f, indent=2, sort_keys=True, default=str)
         print(f"Full results saved to 'warehouse_inventory_{warehouse_id}.json'")
 
     except BrightPearlApiError as e:
@@ -106,7 +111,7 @@ def main():
 
         # Save the full response to a JSON file
         with open('product_search_results.json', 'w') as f:
-            json.dump(product_search_result.dict(), f, indent=2, default=str)
+            json.dump(product_search_result.dict(), f, indent=2, sort_keys=True, default=str)
         print("Full results saved to 'product_search_results.json'")
 
     except BrightPearlApiError as e:
