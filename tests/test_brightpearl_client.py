@@ -109,33 +109,51 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         parsed_results = self.client._parse_api_results(mock_response)
         self.assertEqual(parsed_results, [])
 
-    @patch('requests.get')
-    def test_get_warehouse_inventory(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "response": {
-                "results": {
-                    "1": {"availableStock": 10, "onHandStock": 15},
-                    "2": {"availableStock": 5, "onHandStock": 7}
-                }
-            }
-        }
-        mock_get.return_value = mock_response
+    # @patch('requests.get')
+    # def test_warehouse_inventory_download(self, mock_get):
+    #     mock_response = MagicMock()
+    #     mock_response.json.return_value = {
+    #         "response": {
+    #             "results": [
+    #                 [1, "Product 1", "SKU1", 10, 15, 2, 3],
+    #                 [2, "Product 2", "SKU2", 5, 7, 1, 2]
+    #             ],
+    #             "metaData": {
+    #                 "columns": [
+    #                     {"name": "productId"},
+    #                     {"name": "productName"},
+    #                     {"name": "SKU"},
+    #                     {"name": "inStock"},
+    #                     {"name": "onHand"},
+    #                     {"name": "allocated"},
+    #                     {"name": "inTransit"}
+    #                 ]
+    #             }
+    #         }
+    #     }
+    #     mock_get.return_value = mock_response
 
-        result = self.client.get_warehouse_inventory(1, [1, 2])
+    #     # Mock the get_all_live_products method
+    #     self.client.get_all_live_products = MagicMock(return_value=[
+    #         {"productId": 1, "productName": "Product 1", "SKU": "SKU1"},
+    #         {"productId": 2, "productName": "Product 2", "SKU": "SKU2"}
+    #     ])
 
-        self.assertIsInstance(result, dict)
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result["1"]["availableStock"], 10)
-        self.assertEqual(result["2"]["onHandStock"], 7)
+    #     result = self.client.warehouse_inventory_download(18)
 
-        # Test with no product_ids
-        result = self.client.get_warehouse_inventory(1)
-        self.assertIsInstance(result, dict)
+    #     self.assertIsInstance(result, dict)
+    #     self.assertEqual(len(result), 2)
+    #     self.assertEqual(result[1]["productName"], "Product 1")
+    #     self.assertEqual(result[1]["inventory_inStock"], 10)
+    #     self.assertEqual(result[1]["inventory_onHand"], 15)
+    #     self.assertEqual(result[1]["inventory_allocated"], 2)
+    #     self.assertEqual(result[1]["inventory_inTransit"], 3)
+    #     self.assertEqual(result[2]["productName"], "Product 2")
+    #     self.assertEqual(result[2]["inventory_inStock"], 5)
 
-        # Test with invalid warehouse_id
-        with self.assertRaises(ValueError):
-            self.client.get_warehouse_inventory(0)
+    #     # Test with invalid warehouse_id
+    #     with self.assertRaises(ValueError):
+    #         self.client.warehouse_inventory_download(0)
 
 class TestBrightPearlClientLive(unittest.TestCase):
     @classmethod

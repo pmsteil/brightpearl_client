@@ -267,17 +267,20 @@ class BrightPearlClient(BaseBrightPearlClient):
             batch_availability = self.get_product_availability(batch_product_ids)
 
             for product_id, availability in batch_availability.items():
-                inventory_data[int(product_id)] = {
-                    int(warehouse_id): {
-                        'inStock': warehouse_info['inStock'],
-                        'onHand': warehouse_info['onHand'],
-                        'allocated': warehouse_info['allocated'],
-                        'inTransit': warehouse_info['inTransit']
+                if isinstance(availability, dict) and 'warehouses' in availability:
+                    inventory_data[int(product_id)] = {
+                        int(warehouse_id): {
+                            'inStock': warehouse_info.get('inStock', 0),
+                            'onHand': warehouse_info.get('onHand', 0),
+                            'allocated': warehouse_info.get('allocated', 0),
+                            'inTransit': warehouse_info.get('inTransit', 0)
+                        }
+                        for warehouse_id, warehouse_info in availability['warehouses'].items()
                     }
-                    for warehouse_id, warehouse_info in availability['warehouses'].items()
-                }
-                # Add total availability data
-                inventory_data[int(product_id)]['total'] = availability['total']
+                    # Add total availability data
+                    inventory_data[int(product_id)]['total'] = availability.get('total', {})
+                else:
+                    logger.warning(f"Unexpected availability data format for product ID {product_id}")
 
             print(".", end="", flush=True)
 
