@@ -6,7 +6,6 @@ from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
-ENABLE_LOGGING = False
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -35,13 +34,21 @@ def main():
     print("\nTesting warehouse inventory download...")
     try:
         warehouse_id = 18
-        inventory = client.warehouse_inventory_download([warehouse_id])
-        print(f"Inventory: {inventory}")
+        inventory = client.warehouse_inventory_download(warehouse_id)
         print(f"Retrieved inventory for warehouse {warehouse_id}:")
-        print(f"  Total products with inventory: {len(inventory[warehouse_id])}")
+        print(f"  Total products with inventory: {len(inventory)}")
         print("  Sample of inventory data:")
-        for product_id, quantity in list(inventory[warehouse_id].items())[:5]:
-            print(f"    Product ID: {product_id}, Quantity: {quantity}")
+        for product_id, inventory_data in list(inventory.items())[:3]:
+            print(f"    Product ID: {product_id}")
+            print(f"      In Stock: {inventory_data['inStock']}")
+            print(f"      On Hand: {inventory_data['onHand']}")
+            print(f"      Allocated: {inventory_data['allocated']}")
+            print(f"      In Transit: {inventory_data['inTransit']}")
+        # save the warehouse inventory to a separate JSON file
+        with open(f'warehouse_inventory_{warehouse_id}.json', 'w') as f:
+            json.dump(inventory, f, indent=2)
+        print(f"Full results saved to 'warehouse_inventory_{warehouse_id}.json'")
+
     except BrightPearlApiError as e:
         print(f"API error: {e}")
         print("Please check the following:")

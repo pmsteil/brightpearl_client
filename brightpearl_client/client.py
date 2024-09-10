@@ -209,16 +209,15 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         return live_products
 
-    def warehouse_inventory_download(self, warehouse_ids: List[int]) -> Dict[int, Dict[int, int]]:
+    def warehouse_inventory_download(self, warehouse_id: int) -> Dict[int, Dict[str, int]]:
         """
-        Download warehouse inventory for specified warehouse IDs.
+        Download warehouse inventory for a specified warehouse ID.
 
         Args:
-            warehouse_ids (List[int]): List of warehouse IDs to fetch inventory for.
+            warehouse_id (int): Warehouse ID to fetch inventory for.
 
         Returns:
-            Dict[int, Dict[int, int]]: A dictionary with warehouse IDs as keys and
-                                       dictionaries of product IDs and their quantities as values.
+            Dict[int, Dict[str, int]]: A dictionary with product IDs as keys and their inventory data as values.
         """
         # Get all live products
         live_products = self.get_all_live_products()
@@ -227,19 +226,16 @@ class BrightPearlClient(BaseBrightPearlClient):
         # Fetch inventory data
         inventory_data = self._fetch_inventory_data(product_ids)
 
-        # Filter inventory data for requested warehouse IDs
+        # Filter inventory data for the requested warehouse ID
         filtered_inventory = {
-            warehouse_id: {
-                product_id: warehouse_data.get(warehouse_id, 0)
-                for product_id, warehouse_data in inventory_data.items()
-                if warehouse_id in warehouse_data
-            }
-            for warehouse_id in warehouse_ids
+            product_id: warehouse_data.get(warehouse_id, {'inStock': 0, 'onHand': 0, 'allocated': 0, 'inTransit': 0})
+            for product_id, warehouse_data in inventory_data.items()
+            if warehouse_id in warehouse_data
         }
 
         return filtered_inventory
 
-    def _fetch_inventory_data(self, product_ids: List[int]) -> Dict[int, Dict[int, int]]:
+    def _fetch_inventory_data(self, product_ids: List[int]) -> Dict[int, Dict[int, Dict[str, int]]]:
         """
         Fetch inventory data for given product IDs.
 
@@ -247,8 +243,8 @@ class BrightPearlClient(BaseBrightPearlClient):
             product_ids (List[int]): List of product IDs to fetch inventory for.
 
         Returns:
-            Dict[int, Dict[int, int]]: A dictionary with product IDs as keys and
-                                       dictionaries of warehouse IDs and quantities as values.
+            Dict[int, Dict[int, Dict[str, int]]]: A dictionary with product IDs as keys and
+                                                  dictionaries of warehouse IDs and inventory data as values.
         """
         inventory_data = {}
         batch_size = 500
@@ -264,7 +260,12 @@ class BrightPearlClient(BaseBrightPearlClient):
 
             for product_id, availability in batch_availability.items():
                 inventory_data[int(product_id)] = {
-                    int(warehouse_id): warehouse_info['onHand']
+                    int(warehouse_id): {
+                        'inStock': warehouse_info['inStock'],
+                        'onHand': warehouse_info['onHand'],
+                        'allocated': warehouse_info['allocated'],
+                        'inTransit': warehouse_info['inTransit']
+                    }
                     for warehouse_id, warehouse_info in availability['warehouses'].items()
                 }
 
