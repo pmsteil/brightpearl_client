@@ -19,6 +19,7 @@ import json
 from datetime import datetime, timedelta
 import math
 import hashlib
+import sys
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)  # Set to WARNING to reduce output
@@ -153,9 +154,9 @@ class BrightPearlClient(BaseBrightPearlClient):
         cache_key = 'live_products'
         cached_data = self._get_cached_data(cache_key, cache_minutes)
         if cached_data:
+            logger.info("Using cached live products data")
             return cached_data
 
-        logger.info("Fetching fresh live products data")
         live_products = self._fetch_all_live_products()
 
         self._save_to_cache(cache_key, live_products)
@@ -170,40 +171,34 @@ class BrightPearlClient(BaseBrightPearlClient):
         first_result = 1
         products_per_page = 500
 
-        logger.info("Starting retrieval of all live products")
+        print("Fetching products: ", end="", flush=True)
 
         while True:
             try:
                 relative_url = f'/product-service/product-search?pageSize={products_per_page}&firstResult={first_result}'
-                logger.info(f"Retrieving products starting from result {first_result}")
+                logger.debug(f"Retrieving products starting from result {first_result}")
                 response = self._make_request(relative_url, ProductSearchResponse)
                 formatted_response = self._format_product_search_response(response)
 
                 metadata = formatted_response.metadata
-                logger.info(f"Batch metadata:")
-                logger.info(f"  More pages available: {metadata.morePagesAvailable}")
-                logger.info(f"  Results available: {metadata.resultsAvailable}")
-                logger.info(f"  Results returned: {metadata.resultsReturned}")
-                logger.info(f"  First result: {metadata.firstResult}")
-                logger.info(f"  Last result: {metadata.lastResult}")
-
                 products_in_batch = len(formatted_response.products)
-                logger.info(f"Retrieved {products_in_batch} products in this batch")
 
                 all_products.extend(formatted_response.products)
 
-                total_products = len(all_products)
-                logger.info(f"Total products retrieved so far: {total_products}")
+                print(".", end="", flush=True)
 
-                if total_products >= metadata.resultsAvailable or not metadata.morePagesAvailable:
-                    logger.info("All available products have been retrieved.")
+                if len(all_products) >= metadata.resultsAvailable or not metadata.morePagesAvailable:
                     break
 
                 first_result = metadata.lastResult + 1
 
             except BrightPearlApiError as e:
+                print()  # Move to a new line before printing the error
                 logger.error(f"Failed to retrieve products starting from result {first_result}: {str(e)}")
                 raise BrightPearlApiError(f"Failed to retrieve all products: {str(e)}")
+
+        print()  # Move to a new line after all products are fetched
+        logger.info(f"Retrieved {len(all_products)} total products")
 
         live_products = [product for product in all_products if product.get('productStatus') == 'LIVE']
         logger.info(f"Filtered {len(live_products)} live products out of {len(all_products)} total products")
@@ -251,12 +246,13 @@ class BrightPearlClient(BaseBrightPearlClient):
         batch_size = 500
         total_batches = math.ceil(len(product_ids) / batch_size)
 
+        print("Fetching inventory: ", end="", flush=True)
         for batch_num in range(total_batches):
             start_idx = batch_num * batch_size
             end_idx = min((batch_num + 1) * batch_size, len(product_ids))
             batch_product_ids = product_ids[start_idx:end_idx]
 
-            logger.debug(f"Fetching inventory data for batch {batch_num + 1}/{total_batches}")
+            logger.debug(f"Fetching inventory for batch {batch_num + 1}/{total_batches}")
             batch_availability = self.get_product_availability(batch_product_ids)
 
             for product_id, availability in batch_availability.items():
@@ -270,6 +266,9 @@ class BrightPearlClient(BaseBrightPearlClient):
                     for warehouse_id, warehouse_info in availability['warehouses'].items()
                 }
 
+            print(".", end="", flush=True)
+
+        print()  # Move to a new line after all batches are processed
         return inventory_data
 
     def _handle_request_exception(self, e: requests.exceptions.RequestException, attempt: int):

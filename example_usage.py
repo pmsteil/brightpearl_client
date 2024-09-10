@@ -11,7 +11,7 @@ from brightpearl_client.base_client import BrightPearlApiError  # Add this impor
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Enable INFO logging for specific modules if needed
-logging.getLogger('brightpearl_client.client').setLevel(logging.INFO)
+logging.getLogger('brightpearl_client.client').setLevel(logging.WARNING)
 
 # Load environment variables from .env file
 load_dotenv()
