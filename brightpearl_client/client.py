@@ -60,6 +60,47 @@ class FormattedProductSearchResponse(BaseModel):
     metadata: ProductSearchMetaData
 
 class BrightPearlClient(BaseBrightPearlClient):
+    def __init__(self, api_base_url: str, brightpearl_app_ref: str, brightpearl_account_token: str,
+                 timeout: int = 30, max_retries: int = 3, rate_limit: float = 1):
+        super().__init__(api_base_url, brightpearl_app_ref, brightpearl_account_token,
+                         timeout, max_retries, rate_limit)
+        self._cache_prefix = self._generate_cache_prefix(brightpearl_app_ref)
+
+    def _generate_cache_prefix(self, brightpearl_app_ref: str) -> str:
+        """Generate a hash prefix for cache filenames."""
+        return hashlib.md5(brightpearl_app_ref.encode()).hexdigest()[:8]
+
+    def _get_cache_filename(self, cache_key: str) -> str:
+        """Generate a cache filename with the hash prefix."""
+        return f"{self._cache_prefix}_{cache_key}_cache.json"
+
+    def _get_cached_data(self, cache_key: str, cache_minutes: int) -> Optional[Any]:
+        cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
+        if os.path.exists(cache_file):
+            cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
+            if datetime.now() - cache_time < timedelta(minutes=cache_minutes):
+                logger.info(f"Using cached data for {cache_key}")
+                with open(cache_file, 'r') as cache_file:
+                    return json.load(cache_file)
+        return None
+
+    def _save_to_cache(self, cache_key: str, data: Any) -> None:
+        cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
+        with open(cache_file, 'w') as cache_file:
+            json.dump(data, cache_file)
+        logger.info(f"Saved data to cache for {cache_key}")
+
+    def _invalidate_cache(self, cache_key: str):
+        cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
+        if os.path.exists(cache_file):
+            try:
+                os.remove(cache_file)
+                logger.info(f"Cache file removed for key: {cache_key}")
+            except OSError as e:
+                logger.error(f"Error removing cache file for key {cache_key}: {e}")
+        else:
+            logger.info(f"No cache file found for key: {cache_key}")
+
     def get_orders_by_status(self, status_id: int, parse_api_results: bool = True) -> Union[BrightPearlApiResponse, List[OrderResult]]:
         if not isinstance(status_id, int) or status_id <= 0:
             raise ValueError("status_id must be a positive integer")
@@ -88,7 +129,16 @@ class BrightPearlClient(BaseBrightPearlClient):
         result = {}
         uncached_product_ids = []
 
+        # Get all live products to check stockTracked status
+        live_products = self.get_all_live_products()
+        stock_tracked_products = {product['productId']: product for product in live_products if product.get('stockTracked', False)}
+
         for product_id in product_ids:
+            if product_id not in stock_tracked_products:
+                logger.info(f"Product ID {product_id} is not stock tracked. Skipping availability check.")
+                result[product_id] = {"warehouses": {}, "total": {}}
+                continue
+
             cache_key = f'product_availability_{product_id}'
             cached_data = self._get_cached_data(cache_key, cache_minutes)
             if cached_data:
@@ -106,17 +156,11 @@ class BrightPearlClient(BaseBrightPearlClient):
                     result[int(product_id)] = availability
                     self._save_to_cache(f'product_availability_{product_id}', availability)
             except BrightPearlApiError as e:
-                if isinstance(e.__cause__, requests.exceptions.HTTPError) and e.__cause__.response.status_code == 400:
-                    logger.warning(f"No inventory data available for some products: {product_ids_str}")
-                    # Set empty availability for products with no data
-                    for product_id in uncached_product_ids:
+                logger.error(f"Failed to retrieve product availability: {str(e)}")
+                # In case of errors, we'll still return the data we have
+                for product_id in uncached_product_ids:
+                    if product_id not in result:
                         result[product_id] = {"warehouses": {}, "total": {}}
-                else:
-                    logger.error(f"Failed to retrieve product availability: {str(e)}")
-                    # In case of other errors, we'll still return the data we have
-                    for product_id in uncached_product_ids:
-                        if product_id not in result:
-                            result[product_id] = {"warehouses": {}, "total": {}}
 
         return result
 
@@ -391,17 +435,10 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.info(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
             response = self._make_request(relative_url, list, method='POST', json=payload)
 
-            if isinstance(response, list):
-                success = len(response) > 0
-            else:
-                logger.warning(f"Unexpected response format: {response}")
-                success = False
-
-            if success:
+            if isinstance(response, list) and len(response) > 0:
                 for correction in formatted_corrections:
                     product_id = correction['productId']
-                    cache_key = f'product_availability_{product_id}'
-                    self._invalidate_cache(cache_key)
+                    self._invalidate_product_availability_cache(product_id)
                     logger.info(f"Invalidated cache for product ID {product_id} after successful stock correction")
 
                 return response
@@ -412,18 +449,25 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.error(f"Failed to apply stock corrections: {str(e)}")
             raise BrightPearlApiError(f"Failed to apply stock corrections: {str(e)}")
 
-    def _invalidate_cache(self, cache_key: str):
-        """
-        Invalidate a specific cache entry by removing the cache file.
-        """
-        cache_file = os.path.join(self._cache_dir, f'{cache_key}_cache.json')
+    def _invalidate_product_availability_cache(self, product_id):
+        cache_key = f'product_availability_{product_id}'
+        cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
         if os.path.exists(cache_file):
             try:
                 os.remove(cache_file)
-                logger.info(f"Cache file removed for key: {cache_key}")
+                logger.info(f"Cache file removed for key: {self._cache_prefix}_{cache_key}")
             except OSError as e:
-                logger.error(f"Error removing cache file for key {cache_key}: {e}")
+                logger.error(f"Error removing cache file for key {self._cache_prefix}_{cache_key}: {e}")
         else:
-            logger.info(f"No cache file found for key: {cache_key}")
+            logger.info(f"No cache file found for key: {self._cache_prefix}_{cache_key}")
+
+    def _get_product_id_by_sku(self, sku):
+        # Implement this method to fetch product ID by SKU
+        # You can use the existing get_all_live_products method or implement a new API call
+        products = self.get_all_live_products()
+        for product in products:
+            if product['SKU'] == sku:
+                return product['productId']
+        raise ValueError(f"Product with SKU {sku} not found")
 
     # Add other public API methods here

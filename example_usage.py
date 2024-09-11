@@ -1,13 +1,14 @@
 import os
 import logging
 import json
+import hashlib
 from dotenv import load_dotenv
 from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
-logging_level = logging.WARNING
 logging_level = logging.INFO
+logging_level = logging.WARNING
 
 # Set global logging level to WARNING
 logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -80,9 +81,12 @@ def main():
         print("Stock correction result:")
         print(f"Correction IDs: {result}")
 
+        # Generate cache prefix
+        cache_prefix = hashlib.md5(brightpearl_app_ref.encode()).hexdigest()[:8]
+
         # After the stock correction
         for product_id in [1007, 1008]:
-            cache_file = os.path.join(client._cache_dir, f'product_availability_{product_id}_cache.json')
+            cache_file = os.path.join(client._cache_dir, f'{cache_prefix}_product_availability_{product_id}_cache.json')
             if os.path.exists(cache_file):
                 print(f"Warning: Cache file still exists for product ID {product_id}")
             else:
@@ -97,7 +101,7 @@ def main():
     except Exception as e:
         raise e
 
-    exit(0)
+    # exit(0)
 
 
 

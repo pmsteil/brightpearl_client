@@ -19,6 +19,7 @@ from brightpearl_client.client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
 import requests
 from dotenv import load_dotenv
+import hashlib
 
 # Load environment variables from .env file
 load_dotenv()
@@ -147,6 +148,7 @@ class TestBrightPearlClientLive(unittest.TestCase):
         cls.brightpearl_app_ref = os.getenv("BRIGHTPEARL_APP_REF")
         cls.brightpearl_account_token = os.getenv("BRIGHTPEARL_ACCOUNT_TOKEN")
         cls.client = BrightPearlClient(cls.api_base_url, cls.brightpearl_app_ref, cls.brightpearl_account_token)
+        cls.cache_prefix = hashlib.md5(cls.brightpearl_app_ref.encode()).hexdigest()[:8]
 
     def test_live_get_orders_by_status(self):
         result = self.client.get_orders_by_status(37)  # 37 is "Needs Attention" status
@@ -185,7 +187,7 @@ class TestBrightPearlClientLive(unittest.TestCase):
 
         # Create dummy cache files
         for product_id in [1007, 1008]:
-            cache_file = os.path.join(self.client._cache_dir, f'product_availability_{product_id}_cache.json')
+            cache_file = os.path.join(self.client._cache_dir, f'{self.cache_prefix}_product_availability_{product_id}_cache.json')
             with open(cache_file, 'w') as f:
                 json.dump({'some': 'data'}, f)
 
@@ -194,22 +196,17 @@ class TestBrightPearlClientLive(unittest.TestCase):
             {"productId": 1008, "new_quantity": 15, "reason": "Test correction"}
         ]
 
-        with self.assertLogs(level='DEBUG') as log:
+        with self.assertLogs(level='INFO') as log:
             result = self.client.stock_correction(3, corrections)
-
-        # Print log output for debugging
-        print("Log output:")
-        for message in log.output:
-            print(message)
 
         self.assertEqual(result, [813313, 813314])
 
         for product_id in [1007, 1008]:
-            cache_file = os.path.join(self.client._cache_dir, f'product_availability_{product_id}_cache.json')
+            cache_file = os.path.join(self.client._cache_dir, f'{self.cache_prefix}_product_availability_{product_id}_cache.json')
             self.assertFalse(os.path.exists(cache_file), f"Cache file for product {product_id} should not exist")
 
-        self.assertTrue(any('Cache file removed for key: product_availability_1007' in message for message in log.output))
-        self.assertTrue(any('Cache file removed for key: product_availability_1008' in message for message in log.output))
+        self.assertTrue(any(f'Cache file removed for key: {self.cache_prefix}_product_availability_1007' in message for message in log.output))
+        self.assertTrue(any(f'Cache file removed for key: {self.cache_prefix}_product_availability_1008' in message for message in log.output))
 
 if __name__ == '__main__':
     unittest.main()
