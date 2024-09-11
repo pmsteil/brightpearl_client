@@ -13,7 +13,7 @@ This will test:
 """
 import os
 import unittest
-import json  # Add this import
+import json
 from unittest.mock import patch, MagicMock
 from brightpearl_client.client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
@@ -140,52 +140,6 @@ class TestBrightPearlClientMocked(unittest.TestCase):
         parsed_results = self.client._parse_api_results(mock_response)
         self.assertEqual(parsed_results, [])
 
-    # @patch('requests.get')
-    # def test_warehouse_inventory_download(self, mock_get):
-    #     mock_response = MagicMock()
-    #     mock_response.json.return_value = {
-    #         "response": {
-    #             "results": [
-    #                 [1, "Product 1", "SKU1", 10, 15, 2, 3],
-    #                 [2, "Product 2", "SKU2", 5, 7, 1, 2]
-    #             ],
-    #             "metaData": {
-    #                 "columns": [
-    #                     {"name": "productId"},
-    #                     {"name": "productName"},
-    #                     {"name": "SKU"},
-    #                     {"name": "inStock"},
-    #                     {"name": "onHand"},
-    #                     {"name": "allocated"},
-    #                     {"name": "inTransit"}
-    #                 ]
-    #             }
-    #         }
-    #     }
-    #     mock_get.return_value = mock_response
-
-    #     # Mock the get_all_live_products method
-    #     self.client.get_all_live_products = MagicMock(return_value=[
-    #         {"productId": 1, "productName": "Product 1", "SKU": "SKU1"},
-    #         {"productId": 2, "productName": "Product 2", "SKU": "SKU2"}
-    #     ])
-
-    #     result = self.client.warehouse_inventory_download(18)
-
-    #     self.assertIsInstance(result, dict)
-    #     self.assertEqual(len(result), 2)
-    #     self.assertEqual(result[1]["productName"], "Product 1")
-    #     self.assertEqual(result[1]["inventory_inStock"], 10)
-    #     self.assertEqual(result[1]["inventory_onHand"], 15)
-    #     self.assertEqual(result[1]["inventory_allocated"], 2)
-    #     self.assertEqual(result[1]["inventory_inTransit"], 3)
-    #     self.assertEqual(result[2]["productName"], "Product 2")
-    #     self.assertEqual(result[2]["inventory_inStock"], 5)
-
-    #     # Test with invalid warehouse_id
-    #     with self.assertRaises(ValueError):
-    #         self.client.warehouse_inventory_download(0)
-
 class TestBrightPearlClientLive(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -209,11 +163,25 @@ class TestBrightPearlClientLive(unittest.TestCase):
             self.assertIsInstance(result.response.results[0], list)
 
     @patch('requests.post')
-    def test_stock_correction_invalidates_cache(self, mock_post):
+    @patch('brightpearl_client.client.BrightPearlClient.get_all_live_products')
+    @patch('brightpearl_client.client.BrightPearlClient.get_product_availability')
+    def test_stock_correction_invalidates_cache(self, mock_get_product_availability, mock_get_all_live_products, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"response": [813313, 813314]}
         mock_post.return_value = mock_response
+
+        # Mock get_all_live_products to return a list of products
+        mock_get_all_live_products.return_value = [
+            {"productId": 1007, "SKU": "SKU1007"},
+            {"productId": 1008, "SKU": "SKU1008"}
+        ]
+
+        # Mock get_product_availability to return some availability data
+        mock_get_product_availability.return_value = {
+            1007: {"warehouses": {"3": {"onHand": 5}}},
+            1008: {"warehouses": {"3": {"onHand": 7}}}
+        }
 
         # Create dummy cache files
         for product_id in [1007, 1008]:
@@ -226,8 +194,13 @@ class TestBrightPearlClientLive(unittest.TestCase):
             {"productId": 1008, "new_quantity": 15, "reason": "Test correction"}
         ]
 
-        with self.assertLogs(level='INFO') as log:
+        with self.assertLogs(level='DEBUG') as log:
             result = self.client.stock_correction(3, corrections)
+
+        # Print log output for debugging
+        print("Log output:")
+        for message in log.output:
+            print(message)
 
         self.assertEqual(result, [813313, 813314])
 
@@ -235,8 +208,8 @@ class TestBrightPearlClientLive(unittest.TestCase):
             cache_file = os.path.join(self.client._cache_dir, f'product_availability_{product_id}_cache.json')
             self.assertFalse(os.path.exists(cache_file), f"Cache file for product {product_id} should not exist")
 
-        self.assertIn('Cache file removed for key: product_availability_1007', log.output)
-        self.assertIn('Cache file removed for key: product_availability_1008', log.output)
+        self.assertTrue(any('Cache file removed for key: product_availability_1007' in message for message in log.output))
+        self.assertTrue(any('Cache file removed for key: product_availability_1008' in message for message in log.output))
 
 if __name__ == '__main__':
     unittest.main()

@@ -22,7 +22,7 @@ import hashlib
 import sys
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)  # Set to WARNING to reduce output
+logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all log messages
 
 class ProductAvailabilityResponse(BaseModel):
     response: Dict[str, Any]
@@ -389,16 +389,10 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         try:
             logger.info(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
-            response = self._make_request(relative_url, dict, method='POST', json=payload)
+            response = self._make_request(relative_url, list, method='POST', json=payload)
 
-            # Check if the response contains a 'response' key with a list of correction IDs
-            if isinstance(response, dict) and 'response' in response:
-                correction_ids = response['response']
-                if isinstance(correction_ids, list):
-                    success = len(correction_ids) > 0
-                else:
-                    logger.warning(f"Unexpected response format: {response}")
-                    success = False
+            if isinstance(response, list):
+                success = len(response) > 0
             else:
                 logger.warning(f"Unexpected response format: {response}")
                 success = False
@@ -410,7 +404,7 @@ class BrightPearlClient(BaseBrightPearlClient):
                     self._invalidate_cache(cache_key)
                     logger.info(f"Invalidated cache for product ID {product_id} after successful stock correction")
 
-                return correction_ids
+                return response
             else:
                 raise BrightPearlApiError(f"Stock correction failed: {response}")
 
