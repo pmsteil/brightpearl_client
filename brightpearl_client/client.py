@@ -68,7 +68,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         response = self._make_request(relative_url, BrightPearlApiResponse)
         return self._parse_api_results(response) if parse_api_results else response
 
-    def get_product_availability(self, product_ids: List[int], cache_minutes: int = 15) -> Dict:
+    def get_product_availability(self, product_ids: List[int], cache_minutes: int = 15) -> Dict[int, Dict[str, Any]]:
         """
         Retrieve the availability for specified products across all warehouses.
 
@@ -77,7 +77,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             cache_minutes (int): Number of minutes to consider the cache valid. Defaults to 15.
 
         Returns:
-            Dict: A dictionary containing the availability information for the specified products across all warehouses.
+            Dict[int, Dict[str, Any]]: A dictionary containing the availability information for the specified products.
 
         Raises:
             ValueError: If product_ids is empty.
@@ -86,24 +86,31 @@ class BrightPearlClient(BaseBrightPearlClient):
         if not product_ids:
             raise ValueError("product_ids must not be empty")
 
-        # Create a hash of the product IDs for the cache key
-        product_ids_str = ','.join(map(str, sorted(product_ids)))
-        hash_object = hashlib.md5(product_ids_str.encode())
-        cache_key = f'product_availability_{hash_object.hexdigest()}'
+        result = {}
+        uncached_product_ids = []
 
-        cached_data = self._get_cached_data(cache_key, cache_minutes)
-        if cached_data:
-            return cached_data
+        for product_id in product_ids:
+            cache_key = f'product_availability_{product_id}'
+            cached_data = self._get_cached_data(cache_key, cache_minutes)
+            if cached_data:
+                result[product_id] = cached_data
+            else:
+                uncached_product_ids.append(product_id)
 
-        relative_url = f'/warehouse-service/product-availability/{product_ids_str}'
+        if uncached_product_ids:
+            product_ids_str = ','.join(map(str, uncached_product_ids))
+            relative_url = f'/warehouse-service/product-availability/{product_ids_str}'
 
-        try:
-            response = self._make_request(relative_url, ProductAvailabilityResponse)
-            self._save_to_cache(cache_key, response.response)
-            return response.response
-        except BrightPearlApiError as e:
-            logger.error(f"Failed to retrieve product availability: {str(e)}")
-            raise BrightPearlApiError(f"Failed to retrieve product availability for products {product_ids_str}: {str(e)}")
+            try:
+                response = self._make_request(relative_url, ProductAvailabilityResponse)
+                for product_id, availability in response.response.items():
+                    result[int(product_id)] = availability
+                    self._save_to_cache(f'product_availability_{product_id}', availability)
+            except BrightPearlApiError as e:
+                logger.error(f"Failed to retrieve product availability: {str(e)}")
+                raise BrightPearlApiError(f"Failed to retrieve product availability for products {product_ids_str}: {str(e)}")
+
+        return result
 
     def search_products(self) -> FormattedProductSearchResponse:
         """
@@ -296,5 +303,85 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.error(f"Request failed: {str(e)}")
             if attempt == self._config.max_retries - 1:
                 raise BrightPearlApiError(f"Request failed after {self._config.max_retries} attempts: {str(e)}")
+
+    def stock_correction(self, warehouse_id: int, corrections: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Apply stock corrections for multiple products in a specified warehouse.
+
+        Args:
+            warehouse_id (int): The ID of the warehouse where the corrections will be applied.
+            corrections (List[Dict[str, Any]]): A list of dictionaries containing correction details.
+                Each dictionary should have the following structure:
+                {
+                    "productId": int or "sku": str,
+                    "new_quantity": int,
+                    "reason": str
+                }
+
+        Returns:
+            Dict[str, Any]: The API response containing the results of the stock corrections.
+
+        Raises:
+            BrightPearlApiError: If there's an error with the API request.
+            ValueError: If the input parameters are invalid.
+        """
+        if not isinstance(warehouse_id, int) or warehouse_id <= 0:
+            raise ValueError("warehouse_id must be a positive integer")
+
+        if not corrections or not isinstance(corrections, list):
+            raise ValueError("corrections must be a non-empty list of dictionaries")
+
+        # Get all live products to map SKUs to product IDs
+        live_products = self.get_all_live_products()
+        sku_to_product_id = {product['SKU']: product['productId'] for product in live_products}
+
+        formatted_corrections = []
+        product_ids = []
+
+        for correction in corrections:
+            if 'sku' in correction:
+                sku = correction['sku']
+                if sku not in sku_to_product_id:
+                    raise ValueError(f"SKU '{sku}' not found in live products")
+                product_id = sku_to_product_id[sku]
+            elif 'productId' in correction:
+                product_id = correction['productId']
+            else:
+                raise ValueError("Each correction must contain either 'sku' or 'productId'")
+
+            product_ids.append(product_id)
+
+        # Get current availability for all products
+        current_availability = self.get_product_availability(product_ids)
+
+        for correction in corrections:
+            product_id = correction.get('productId') or sku_to_product_id[correction['sku']]
+            new_quantity = correction['new_quantity']
+            current_quantity = current_availability[product_id]['warehouses'][str(warehouse_id)]['onHand']
+            quantity_change = new_quantity - current_quantity
+
+            formatted_corrections.append({
+                "quantity": quantity_change,
+                "productId": product_id,
+                "reason": correction["reason"],
+                "locationId": 2,  # Hardcoded to 2 as per requirements
+                "cost": {
+                    "currency": "USD",
+                    "value": 0.00
+                }
+            })
+
+        payload = {
+            "corrections": formatted_corrections
+        }
+
+        relative_url = f'/warehouse-service/warehouse/{warehouse_id}/stock-correction'
+
+        try:
+            response = self._make_request(relative_url, dict, method='POST', json=payload)
+            return response
+        except BrightPearlApiError as e:
+            logger.error(f"Failed to apply stock corrections: {str(e)}")
+            raise BrightPearlApiError(f"Failed to apply stock corrections: {str(e)}")
 
     # Add other public API methods here
