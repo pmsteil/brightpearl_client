@@ -33,6 +33,67 @@ def main():
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
 
+    # Test stock correction
+    print("\nTesting stock correction...")
+    try:
+        warehouse_id = 3  # Assuming warehouse ID 3, adjust if needed
+
+        # Get current inventory for the products we want to update
+        product_ids = [1007,1008]
+        current_inventory = client.get_product_availability(product_ids)
+
+        # Find the SKU for product ID 1007
+        sku_1007 = next((product['SKU'] for product in client.get_all_live_products() if product['productId'] == 1007), None)
+        sku_1007_current_inventory = current_inventory[1007]['warehouses'].get(str(warehouse_id), {}).get('onHand', 0)
+
+        # find the productId for SKU 1HBON085
+        product_id_1hb085 = next((product['productId'] for product in client.get_all_live_products() if product['SKU'] == '1HBON085'), None)
+        sku_1hb085_current_inventory = current_inventory[product_id_1hb085]['warehouses'].get(str(warehouse_id), {}).get('onHand', 0)
+
+        current_state = {
+            "1007": sku_1007_current_inventory,
+            "1008": sku_1hb085_current_inventory
+        }
+
+        print(f"Current state: {current_state}")
+
+        corrections = [
+            {
+                "productId": 1007,
+                "new_quantity": sku_1007_current_inventory + 5,
+                "reason": "TEST/Nisolo Inventory Sync"
+            }
+            # ,
+            # {
+            #     "sku": "1HBON085",
+            #     # "productId": product_id_1hb085,
+            #     "new_quantity": sku_1hb085_current_inventory + 10,
+            #     "reason": "Inventory adjustment"
+            # }
+        ]
+
+        print( f"corrections: {json.dumps(corrections, indent=2) }")
+
+        result = client.stock_correction(warehouse_id, corrections)
+        print("Stock correction result:")
+        print(json.dumps(result, indent=2))
+
+    except BrightPearlApiError as e:
+        print(f"API error: {e}")
+        print("Please check the following:")
+        print("1. The warehouse ID and product IDs/SKUs are valid and exist in your BrightPearl account.")
+        print("2. You have the necessary permissions to perform stock corrections.")
+        print("3. The API endpoint is correct for your BrightPearl account.")
+    except Exception as e:
+        raise e
+
+    exit(0)
+
+
+
+
+
+
     # Test warehouse inventory download
     print("\nTesting warehouse inventory download...")
     try:

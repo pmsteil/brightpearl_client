@@ -374,7 +374,7 @@ class BrightPearlClient(BaseBrightPearlClient):
                 "quantity": quantity_change,
                 "productId": product_id,
                 "reason": correction["reason"],
-                "locationId": 2,  # Hardcoded to 2 as per requirements
+                "locationId": 53,
                 "cost": {
                     "currency": "USD",
                     "value": 0.00
@@ -388,6 +388,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         relative_url = f'/warehouse-service/warehouse/{warehouse_id}/stock-correction'
 
         try:
+            logger.info(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
             response = self._make_request(relative_url, dict, method='POST', json=payload)
             return response
         except BrightPearlApiError as e:

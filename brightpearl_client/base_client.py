@@ -105,7 +105,7 @@ class BaseBrightPearlClient:
             time.sleep(sleep_time)
         self._last_request_time = time.time()
 
-    def _make_request(self, relative_url: str, response_model: Type[T]) -> T:
+    def _make_request(self, relative_url: str, response_model: Type[T], method: str = 'GET', json: Dict = None) -> T:
         url = f'{self._config.api_base_url}{relative_url}'
         headers = {
             "brightpearl-app-ref": self._config.brightpearl_app_ref,
@@ -114,10 +114,21 @@ class BaseBrightPearlClient:
         for attempt in range(self._config.max_retries):
             try:
                 self._respect_rate_limit()
-                logger.debug(f"Making request to: {url}")
-                response = requests.get(url, headers=headers, timeout=self._config.timeout)
+                logger.debug(f"Making {method} request to: {url}")
+                if method.upper() == 'GET':
+                    response = requests.get(url, headers=headers, timeout=self._config.timeout)
+                elif method.upper() == 'POST':
+                    response = requests.post(url, headers=headers, json=json, timeout=self._config.timeout)
+                else:
+                    raise ValueError(f"Unsupported HTTP method: {method}")
+                logger.info(f"API Response for {method} {url}:\n{response.json()}")
+
+                if response.status_code != 200:
+                    logger.error(f"API Error for {method} {url}:\n{response.json()}")
+                    raise BrightPearlApiError(f"API Error for {method} {url}:\n{response.json()}")
+
                 response.raise_for_status()
-                logger.info(f"Successfully retrieved data from: {url}")
+                logger.info(f"Successfully {method} data to/from: {url}")
                 return response_model(**response.json())
             except Timeout:
                 logger.warning(f"Request timed out (attempt {attempt + 1}/{self._config.max_retries})")
