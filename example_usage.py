@@ -8,10 +8,10 @@ from brightpearl_client.base_client import BrightPearlApiError  # Add this impor
 # Control logging to screen
 
 # Set global logging level to WARNING
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Enable INFO logging for specific modules if needed
-logging.getLogger('brightpearl_client.client').setLevel(logging.INFO)
+logging.getLogger('brightpearl_client.client').setLevel(logging.WARNING)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,7 +64,7 @@ def main():
     except Exception as e:
         raise e
 
-    exit(0)
+    # exit(0)
 
     # Get all live products (with caching)
     print("\nRetrieving all live products...")
