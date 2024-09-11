@@ -81,7 +81,6 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         Raises:
             ValueError: If product_ids is empty.
-            BrightPearlApiError: If there's an error with the API request.
         """
         if not product_ids:
             raise ValueError("product_ids must not be empty")
@@ -107,8 +106,17 @@ class BrightPearlClient(BaseBrightPearlClient):
                     result[int(product_id)] = availability
                     self._save_to_cache(f'product_availability_{product_id}', availability)
             except BrightPearlApiError as e:
-                logger.error(f"Failed to retrieve product availability: {str(e)}")
-                raise BrightPearlApiError(f"Failed to retrieve product availability for products {product_ids_str}: {str(e)}")
+                if isinstance(e.__cause__, requests.exceptions.HTTPError) and e.__cause__.response.status_code == 400:
+                    logger.warning(f"No inventory data available for some products: {product_ids_str}")
+                    # Set empty availability for products with no data
+                    for product_id in uncached_product_ids:
+                        result[product_id] = {"warehouses": {}, "total": {}}
+                else:
+                    logger.error(f"Failed to retrieve product availability: {str(e)}")
+                    # In case of other errors, we'll still return the data we have
+                    for product_id in uncached_product_ids:
+                        if product_id not in result:
+                            result[product_id] = {"warehouses": {}, "total": {}}
 
         return result
 
@@ -357,7 +365,9 @@ class BrightPearlClient(BaseBrightPearlClient):
         for correction in corrections:
             product_id = correction.get('productId') or sku_to_product_id[correction['sku']]
             new_quantity = correction['new_quantity']
-            current_quantity = current_availability[product_id]['warehouses'][str(warehouse_id)]['onHand']
+            product_availability = current_availability.get(product_id, {})
+            warehouse_availability = product_availability.get('warehouses', {}).get(str(warehouse_id), {})
+            current_quantity = warehouse_availability.get('onHand', 0)
             quantity_change = new_quantity - current_quantity
 
             formatted_corrections.append({
