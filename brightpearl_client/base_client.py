@@ -105,7 +105,7 @@ class BaseBrightPearlClient:
             time.sleep(sleep_time)
         self._last_request_time = time.time()
 
-    def _make_request(self, relative_url: str, response_model: Type[T], method: str = 'GET', json: Dict = None) -> T:
+    def _make_request(self, relative_url: str, response_model: Type[T], method: str = 'GET', **kwargs) -> T:
         url = f'{self._config.api_base_url}{relative_url}'
         headers = {
             "brightpearl-app-ref": self._config.brightpearl_app_ref,
@@ -118,7 +118,7 @@ class BaseBrightPearlClient:
                 if method.upper() == 'GET':
                     response = requests.get(url, headers=headers, timeout=self._config.timeout)
                 elif method.upper() == 'POST':
-                    response = requests.post(url, headers=headers, json=json, timeout=self._config.timeout)
+                    response = requests.post(url, headers=headers, json=kwargs.get('json'), timeout=self._config.timeout)
                 else:
                     raise ValueError(f"Unsupported HTTP method: {method}")
                 logger.info(f"API Response for {method} {url}:\n{response.json()}")
@@ -129,7 +129,22 @@ class BaseBrightPearlClient:
 
                 response.raise_for_status()
                 logger.info(f"Successfully {method} data to/from: {url}")
-                return response_model(**response.json())
+                try:
+                    response_data = response.json()
+                except ValueError:
+                    response_data = response.text
+
+                if response_model == dict:
+                    return response_data
+                elif response_model == list:
+                    if isinstance(response_data, list):
+                        return response_data
+                    elif isinstance(response_data, dict) and 'response' in response_data:
+                        return response_data['response']
+                    else:
+                        raise BrightPearlApiError(f"Unexpected response format: {response_data}")
+                else:
+                    return response_model(**response_data)
             except Timeout:
                 logger.warning(f"Request timed out (attempt {attempt + 1}/{self._config.max_retries})")
             except HTTPError as http_err:

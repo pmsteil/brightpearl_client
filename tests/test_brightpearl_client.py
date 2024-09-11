@@ -13,6 +13,7 @@ This will test:
 """
 import os
 import unittest
+import json  # Add this import
 from unittest.mock import patch, MagicMock
 from brightpearl_client.client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
@@ -206,6 +207,36 @@ class TestBrightPearlClientLive(unittest.TestCase):
         self.assertIsInstance(result.response.results, list)
         if result.response.results:
             self.assertIsInstance(result.response.results[0], list)
+
+    @patch('requests.post')
+    def test_stock_correction_invalidates_cache(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"response": [813313, 813314]}
+        mock_post.return_value = mock_response
+
+        # Create dummy cache files
+        for product_id in [1007, 1008]:
+            cache_file = os.path.join(self.client._cache_dir, f'product_availability_{product_id}_cache.json')
+            with open(cache_file, 'w') as f:
+                json.dump({'some': 'data'}, f)
+
+        corrections = [
+            {"productId": 1007, "new_quantity": 10, "reason": "Test correction"},
+            {"productId": 1008, "new_quantity": 15, "reason": "Test correction"}
+        ]
+
+        with self.assertLogs(level='INFO') as log:
+            result = self.client.stock_correction(3, corrections)
+
+        self.assertEqual(result, [813313, 813314])
+
+        for product_id in [1007, 1008]:
+            cache_file = os.path.join(self.client._cache_dir, f'product_availability_{product_id}_cache.json')
+            self.assertFalse(os.path.exists(cache_file), f"Cache file for product {product_id} should not exist")
+
+        self.assertIn('Cache file removed for key: product_availability_1007', log.output)
+        self.assertIn('Cache file removed for key: product_availability_1008', log.output)
 
 if __name__ == '__main__':
     unittest.main()

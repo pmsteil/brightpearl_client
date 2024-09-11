@@ -312,7 +312,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             if attempt == self._config.max_retries - 1:
                 raise BrightPearlApiError(f"Request failed after {self._config.max_retries} attempts: {str(e)}")
 
-    def stock_correction(self, warehouse_id: int, corrections: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def stock_correction(self, warehouse_id: int, corrections: List[Dict[str, Any]]) -> List[int]:
         """
         Apply stock corrections for multiple products in a specified warehouse.
 
@@ -327,7 +327,7 @@ class BrightPearlClient(BaseBrightPearlClient):
                 }
 
         Returns:
-            Dict[str, Any]: The API response containing the results of the stock corrections.
+            List[int]: The list of correction IDs returned by the API.
 
         Raises:
             BrightPearlApiError: If there's an error with the API request.
@@ -390,9 +390,46 @@ class BrightPearlClient(BaseBrightPearlClient):
         try:
             logger.info(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
             response = self._make_request(relative_url, dict, method='POST', json=payload)
-            return response
+
+            # Check if the response contains a 'response' key with a list of correction IDs
+            if isinstance(response, dict) and 'response' in response:
+                correction_ids = response['response']
+                if isinstance(correction_ids, list):
+                    success = len(correction_ids) > 0
+                else:
+                    logger.warning(f"Unexpected response format: {response}")
+                    success = False
+            else:
+                logger.warning(f"Unexpected response format: {response}")
+                success = False
+
+            if success:
+                for correction in formatted_corrections:
+                    product_id = correction['productId']
+                    cache_key = f'product_availability_{product_id}'
+                    self._invalidate_cache(cache_key)
+                    logger.info(f"Invalidated cache for product ID {product_id} after successful stock correction")
+
+                return correction_ids
+            else:
+                raise BrightPearlApiError(f"Stock correction failed: {response}")
+
         except BrightPearlApiError as e:
             logger.error(f"Failed to apply stock corrections: {str(e)}")
             raise BrightPearlApiError(f"Failed to apply stock corrections: {str(e)}")
+
+    def _invalidate_cache(self, cache_key: str):
+        """
+        Invalidate a specific cache entry by removing the cache file.
+        """
+        cache_file = os.path.join(self._cache_dir, f'{cache_key}_cache.json')
+        if os.path.exists(cache_file):
+            try:
+                os.remove(cache_file)
+                logger.info(f"Cache file removed for key: {cache_key}")
+            except OSError as e:
+                logger.error(f"Error removing cache file for key {cache_key}: {e}")
+        else:
+            logger.info(f"No cache file found for key: {cache_key}")
 
     # Add other public API methods here

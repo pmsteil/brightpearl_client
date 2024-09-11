@@ -6,12 +6,14 @@ from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
+logging_level = logging.WARNING
+logging_level = logging.INFO
 
 # Set global logging level to WARNING
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Enable INFO logging for specific modules if needed
-logging.getLogger('brightpearl_client.client').setLevel(logging.WARNING)
+logging.getLogger('brightpearl_client.client').setLevel(logging_level)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,20 +65,28 @@ def main():
                 "new_quantity": sku_1007_current_inventory + 5,
                 "reason": "TEST/Nisolo Inventory Sync"
             }
-            # ,
-            # {
-            #     "sku": "1HBON085",
-            #     # "productId": product_id_1hb085,
-            #     "new_quantity": sku_1hb085_current_inventory + 10,
-            #     "reason": "Inventory adjustment"
-            # }
+            ,
+            {
+                "sku": "1HBON085",
+                # "productId": product_id_1hb085,
+                "new_quantity": sku_1hb085_current_inventory + 10,
+                "reason": "TEST/Nisolo Inventory Sync"
+            }
         ]
 
         print( f"corrections: {json.dumps(corrections, indent=2) }")
 
         result = client.stock_correction(warehouse_id, corrections)
         print("Stock correction result:")
-        print(json.dumps(result, indent=2))
+        print(f"Correction IDs: {result}")
+
+        # After the stock correction
+        for product_id in [1007, 1008]:
+            cache_file = os.path.join(client._cache_dir, f'product_availability_{product_id}_cache.json')
+            if os.path.exists(cache_file):
+                print(f"Warning: Cache file still exists for product ID {product_id}")
+            else:
+                print(f"Cache file successfully removed for product ID {product_id}")
 
     except BrightPearlApiError as e:
         print(f"API error: {e}")
