@@ -8,10 +8,10 @@ from brightpearl_client.base_client import BrightPearlApiError  # Add this impor
 # Control logging to screen
 
 # Set global logging level to WARNING
-logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Enable INFO logging for specific modules if needed
-logging.getLogger('brightpearl_client.client').setLevel(logging.WARNING)
+logging.getLogger('brightpearl_client.client').setLevel(logging.INFO)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,7 +36,7 @@ def main():
     # Test warehouse inventory download
     print("\nTesting warehouse inventory download...")
     try:
-        warehouse_id = 18
+        warehouse_id = 3
         inventory = client.warehouse_inventory_download(warehouse_id)
         print(f"Retrieved inventory for warehouse {warehouse_id}:")
         print(f"  Total products with inventory: {len(inventory)}")

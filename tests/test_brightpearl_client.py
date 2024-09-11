@@ -22,7 +22,7 @@ import requests
 
 class TestBrightPearlClientMocked(unittest.TestCase):
     def setUp(self):
-        self.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisolo/"
+        self.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisoloclone/"
         self.brightpearl_app_ref = "nisolo_operations"
         self.brightpearl_account_token = "Da+8ugbNK6nUL1QnmJROutSj77AKOqPLbzXymaK/yrU="
         self.client = BrightPearlClient(self.api_base_url, self.brightpearl_app_ref, self.brightpearl_account_token)
@@ -158,7 +158,7 @@ class TestBrightPearlClientMocked(unittest.TestCase):
 class TestBrightPearlClientLive(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisolo/"
+        cls.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisoloclone/"
         cls.brightpearl_app_ref = "nisolo_operations"
         cls.brightpearl_account_token = "Da+8ugbNK6nUL1QnmJROutSj77AKOqPLbzXymaK/yrU="
         cls.client = BrightPearlClient(cls.api_base_url, cls.brightpearl_app_ref, cls.brightpearl_account_token)

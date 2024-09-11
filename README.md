@@ -17,7 +17,7 @@ Here's a basic example of how to use the BrightPearl client:
 ```
 from brightpearl_client import BrightPearlClient
 
-api_base_url = "https://use1.brightpearlconnect.com/public-api/nisolo/"
+api_base_url = "https://use1.brightpearlconnect.com/public-api/your_account_name/"
 brightpearl_app_ref = "your_app_ref"
 brightpearl_account_token = "your_account_token"
 
@@ -79,6 +79,24 @@ except BrightPearlApiError as e:
 1. Clone the repository
 2. Install dependencies: `pipenv install`
 3. Run tests: `python -m unittest discover tests`
+
+## Creating BrightPearl API credentials
+
+1. Login to BrightPearl with the proper account name, this will be the last part of the `BRIGHTPEARL_API_URL`. Example: /public-api/account_name/.
+2. Click "App Store"
+3. Click "Private Apps" in the top right of the toolbar
+4. Click "Add private app"
+5. Select "Staff app"
+6. Give it a descriptive Name like "Python API Client"
+7. Add the "Identifier".
+8. Make sure "Active" is checked
+9. Click the "Install" button at the bottom
+10. Copy the "Reference" field value.  This is the `BRIGHTPEARL_APP_REF`. This will be different from the Identifier you provided above.
+10. Copy the "Token" displayed on the screen.  This is the `BRIGHTPEARL_ACCOUNT_TOKEN`
+11. Configure your three ENV variables accordingly for example:
+BRIGHTPEARL_API_URL="https://use1.brightpearlconnect.com/public-api/account_name/"
+BRIGHTPEARL_APP_REF="accountname_python_api_client"
+BRIGHTPEARL_ACCOUNT_TOKEN="1234567890"
 
 ## License
 
