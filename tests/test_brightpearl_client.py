@@ -17,14 +17,16 @@ from unittest.mock import patch, MagicMock
 from brightpearl_client.client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiResponse, OrderResponse, OrderResult, BrightPearlApiError, BrightPearlClientError
 import requests
+from dotenv import load_dotenv
 
-# Remove the dotenv import if it's not being used
+# Load environment variables from .env file
+load_dotenv()
 
 class TestBrightPearlClientMocked(unittest.TestCase):
     def setUp(self):
-        self.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisoloclone/"
-        self.brightpearl_app_ref = "nisolo_operations"
-        self.brightpearl_account_token = "Da+8ugbNK6nUL1QnmJROutSj77AKOqPLbzXymaK/yrU="
+        self.api_base_url = os.getenv("BRIGHTPEARL_API_URL")
+        self.brightpearl_app_ref = os.getenv("BRIGHTPEARL_APP_REF")
+        self.brightpearl_account_token = os.getenv("BRIGHTPEARL_ACCOUNT_TOKEN")
         self.client = BrightPearlClient(self.api_base_url, self.brightpearl_app_ref, self.brightpearl_account_token)
 
     def test_init_without_required_params(self):
@@ -55,7 +57,21 @@ class TestBrightPearlClientMocked(unittest.TestCase):
     @patch('requests.get')
     def test_get_orders_by_status_parsed(self, mock_get):
         mock_response = MagicMock()
-        mock_response.json.return_value = {"response": {"results": [[1, 2, 3, 4, 5]]}}
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "response": {
+                "metaData": {
+                    "columns": [
+                        {"name": "orderId"},
+                        {"name": "orderTypeId"},
+                        {"name": "contactId"},
+                        {"name": "orderStatusId"},
+                        {"name": "orderStockStatusId"}
+                    ]
+                },
+                "results": [[1, 2, 3, 4, 5]]
+            }
+        }
         mock_get.return_value = mock_response
 
         result = self.client.get_orders_by_status(37)
@@ -68,7 +84,21 @@ class TestBrightPearlClientMocked(unittest.TestCase):
     @patch('requests.get')
     def test_get_orders_by_status_unparsed(self, mock_get):
         mock_response = MagicMock()
-        mock_response.json.return_value = {"response": {"results": [[1, 2, 3, 4, 5]]}}
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "response": {
+                "metaData": {
+                    "columns": [
+                        {"name": "orderId"},
+                        {"name": "orderTypeId"},
+                        {"name": "contactId"},
+                        {"name": "orderStatusId"},
+                        {"name": "orderStockStatusId"}
+                    ]
+                },
+                "results": [[1, 2, 3, 4, 5]]
+            }
+        }
         mock_get.return_value = mock_response
 
         result = self.client.get_orders_by_status(37, parse_api_results=False)
@@ -158,9 +188,9 @@ class TestBrightPearlClientMocked(unittest.TestCase):
 class TestBrightPearlClientLive(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.api_base_url = "https://use1.brightpearlconnect.com/public-api/nisoloclone/"
-        cls.brightpearl_app_ref = "nisolo_operations"
-        cls.brightpearl_account_token = "Da+8ugbNK6nUL1QnmJROutSj77AKOqPLbzXymaK/yrU="
+        cls.api_base_url = os.getenv("BRIGHTPEARL_API_URL")
+        cls.brightpearl_app_ref = os.getenv("BRIGHTPEARL_APP_REF")
+        cls.brightpearl_account_token = os.getenv("BRIGHTPEARL_ACCOUNT_TOKEN")
         cls.client = BrightPearlClient(cls.api_base_url, cls.brightpearl_app_ref, cls.brightpearl_account_token)
 
     def test_live_get_orders_by_status(self):
