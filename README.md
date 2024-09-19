@@ -45,7 +45,6 @@ Parameters:
 
 ### Retrieving orders by status
 
-
 ```
 parsed_orders = client.get_orders_by_status(37)
 
