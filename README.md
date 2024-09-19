@@ -8,6 +8,7 @@ To install the BrightPearl client, you can use pip:
 
 ```
 pipenv install git+https://github.com/pmsteil/brightpearl_client.git
+pipenv install python-fasthtml
 ```
 
 ## Usage
@@ -16,15 +17,16 @@ Here's a basic example of how to use the BrightPearl client:
 
 ```
 from brightpearl_client import BrightPearlClient
+from dotenv import load_dotenv
+import os
 
-api_base_url = "https://use1.brightpearlconnect.com/public-api/your_account_name/"
-brightpearl_app_ref = "your_app_ref"
-brightpearl_account_token = "your_account_token"
+# Load environment variables from .env file
+load_dotenv()
 
-# Initialize with required parameters
-client = BrightPearlClient(api_base_url, brightpearl_app_ref, brightpearl_account_token)
+api_base_url = os.getenv("BRIGHTPEARL_API_URL")
+brightpearl_app_ref = os.getenv("BRIGHTPEARL_APP_REF")
+brightpearl_account_token = os.getenv("BRIGHTPEARL_ACCOUNT_TOKEN")
 
-# Or, initialize with all parameters including optional ones
 client = BrightPearlClient(
     api_base_url=api_base_url,
     brightpearl_app_ref=brightpearl_app_ref,
@@ -43,25 +45,118 @@ Parameters:
 - `max_retries` (optional): Maximum number of retries for failed requests. Default is 3 retries.
 - `rate_limit` (optional): Minimum time in seconds between API requests. Default is 1.0 second.
 
-### Retrieving orders by status
+## Available Methods
+
+### 1. Stock Correction
+
+Perform a stock correction for specified products.
 
 ```
-parsed_orders = client.get_orders_by_status(37)
-
-for order in parsed_orders:
-    print(f"Order ID: {order.orderId}")
-    print(f"Order Type ID: {order.order_type_id}")
-    print(f"Contact ID: {order.contact_id}")
-    print(f"Order Status ID: {order.order_status_id}")
-    print(f"Order Stock Status ID: {order.order_stock_status_id}")
-    print("---")
+corrections = [
+    {
+        "productId": 1007,
+        "new_quantity": 15,
+        "reason": "Inventory Sync"
+    },
+    {
+        "sku": "1HBON085",
+        "new_quantity": 20,
+        "reason": "Inventory Sync"
+    }
+]
+result = client.stock_correction(warehouse_id, corrections)
 ```
 
-### Error handling
+### 2. Warehouse Inventory Download
+
+Download inventory information for a specific warehouse.
+
+```
+warehouse_id = 3
+inventory = client.warehouse_inventory_download(warehouse_id)
+```
+
+### 3. Get All Live Products
+
+Retrieve all live products from BrightPearl.
+
+```
+live_products = client.get_all_live_products()
+```
+
+### 4. Search Products
+
+Search for products with optional filters.
+
+```
+product_search_result = client.search_products()
+```
+
+### 5. Get Product Availability (Inventory)
+
+Retrieve availability information for specific products.
+
+```
+products = [1007, 1008]
+availability = client.get_product_availability(products)
+```
+
+### 6. Get Orders by Status
+
+Retrieve orders with a specific status.
+
+```
+parsed_orders = client.get_orders_by_status(23)
+```
+
+### 7. Download All Products and Sync Inventory Between Warehouses
+
+Here's an example of how to download all products and sync inventory between two warehouses:
+
+```
+#### Get all live products
+live_products = client.get_all_live_products()
+
+#### Define source and destination warehouse IDs
+source_warehouse_id = 1
+destination_warehouse_id = 2
+
+#### Get inventory for both warehouses
+source_inventory = client.warehouse_inventory_download(source_warehouse_id)
+destination_inventory = client.warehouse_inventory_download(destination_warehouse_id)
+
+#### Prepare corrections list
+corrections = []
+
+for product in live_products:
+    product_id = product['productId']
+    sku = product['SKU']
+
+    source_quantity = source_inventory.get(product_id, {}).get('inventory_onHand', 0)
+    destination_quantity = destination_inventory.get(product_id, {}).get('inventory_onHand', 0)
+
+    if source_quantity != destination_quantity:
+        corrections.append({
+            "productId": product_id,
+            "new_quantity": source_quantity,
+            "reason": f"Sync inventory from Warehouse {source_warehouse_id} to {destination_warehouse_id}"
+        })
+
+#### Apply corrections to destination warehouse
+if corrections:
+    result = client.stock_correction(destination_warehouse_id, corrections)
+    print(f"Synced {len(corrections)} products between warehouses {source_warehouse_id} and {destination_warehouse_id}")
+else:
+    print("No inventory differences found between warehouses")
+```
+
+## Error Handling
 
 The client raises `BrightPearlApiError` for API-related errors:
 
 ```
+from brightpearl_client.base_client import BrightPearlApiError
+
 try:
     response = client.get_orders_by_status(37)
 except BrightPearlApiError as e:
@@ -90,12 +185,12 @@ except BrightPearlApiError as e:
 7. Add the "Identifier".
 8. Make sure "Active" is checked
 9. Click the "Install" button at the bottom
-10. Copy the "Reference" field value.  This is the `BRIGHTPEARL_APP_REF`. This will be different from the Identifier you provided above.
-10. Copy the "Token" displayed on the screen.  This is the `BRIGHTPEARL_ACCOUNT_TOKEN`
-11. Configure your three ENV variables accordingly for example:
-BRIGHTPEARL_API_URL="https://use1.brightpearlconnect.com/public-api/account_name/"
-BRIGHTPEARL_APP_REF="accountname_python_api_client"
-BRIGHTPEARL_ACCOUNT_TOKEN="1234567890"
+10. Copy the "Reference" field value. This is the `BRIGHTPEARL_APP_REF`. This will be different from the Identifier you provided above.
+11. Copy the "Token" displayed on the screen. This is the `BRIGHTPEARL_ACCOUNT_TOKEN`
+12. Configure your three ENV variables accordingly, for example:
+    BRIGHTPEARL_API_URL="https://use1.brightpearlconnect.com/public-api/account_name/"
+    BRIGHTPEARL_APP_REF="accountname_python_api_client"
+    BRIGHTPEARL_ACCOUNT_TOKEN="1234567890"
 
 ## License
 
