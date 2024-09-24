@@ -102,6 +102,19 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.info(f"No cache file found for key: {cache_key}")
 
     def get_orders_by_status(self, status_id: int, parse_api_results: bool = True) -> Union[BrightPearlApiResponse, List[OrderResult]]:
+        """
+        Retrieve orders by status ID.
+
+        Args:
+            status_id (int): The status ID to filter orders by.
+            parse_api_results (bool): Whether to parse the API results. Defaults to True.
+
+        Returns:
+            Union[BrightPearlApiResponse, List[OrderResult]]: The API response or parsed order results.
+
+        Raises:
+            ValueError: If status_id is not a positive integer.
+        """
         if not isinstance(status_id, int) or status_id <= 0:
             raise ValueError("status_id must be a positive integer")
 
