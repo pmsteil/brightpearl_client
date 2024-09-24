@@ -483,4 +483,3 @@ class BrightPearlClient(BaseBrightPearlClient):
                 return product['productId']
         raise ValueError(f"Product with SKU {sku} not found")
 
-    # Add other public API methods here
