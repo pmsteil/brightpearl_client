@@ -7,8 +7,9 @@ from brightpearl_client import BrightPearlClient
 from brightpearl_client.base_client import BrightPearlApiError  # Add this import
 
 # Control logging to screen
-logging_level = logging.INFO
 logging_level = logging.WARNING
+logging_level = logging.INFO
+logging_level = logging.DEBUG
 
 # Set global logging level to WARNING
 logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -60,6 +61,7 @@ def main():
 
         print(f"Current state: {current_state}")
 
+
         corrections = [
             {
                 "productId": 1007,
@@ -71,13 +73,14 @@ def main():
                 "sku": "1HBON085",
                 # "productId": product_id_1hb085,
                 "new_quantity": sku_1hb085_current_inventory + 10,
-                "reason": "TEST/Nisolo Inventory Sync"
+                "reason": "TEST/Nisolo Inventory Sync",
             }
         ]
 
         print( f"corrections: {json.dumps(corrections, indent=2) }")
 
-        result = client.stock_correction(warehouse_id, corrections)
+        location = "53" # works... not sure why, should be 51
+        result = client.stock_correction(warehouse_id, location, corrections)
         print("Stock correction result:")
         print(f"Correction IDs: {result}")
 
@@ -98,6 +101,7 @@ def main():
         print("1. The warehouse ID and product IDs/SKUs are valid and exist in your BrightPearl account.")
         print("2. You have the necessary permissions to perform stock corrections.")
         print("3. The API endpoint is correct for your BrightPearl account.")
+        exit(1)
     except Exception as e:
         raise e
 
