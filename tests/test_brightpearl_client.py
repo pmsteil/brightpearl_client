@@ -197,7 +197,7 @@ class TestBrightPearlClientLive(unittest.TestCase):
         ]
 
         with self.assertLogs(level='INFO') as log:
-            result = self.client.stock_correction(3, corrections)
+            result = self.client.stock_correction(3, 51,corrections)
 
         self.assertEqual(result, [813313, 813314])
 
