@@ -40,7 +40,10 @@ def main():
     # Test stock correction
     print("\nTesting stock correction...")
     try:
-        warehouse_id = 3  # Assuming warehouse ID 3, adjust if needed
+        warehouse_id = 3  # this one works: Nisolo DC
+        location = "53" # 53 works with Nisolo DC... not sure why
+        warehouse_id = 13  # JayGroupLCO doesn't like location 53
+        location = "439"
 
         # Get current inventory for the products we want to update
         product_ids = [1007,1008]
@@ -61,6 +64,8 @@ def main():
 
         print(f"Current state: {current_state}")
 
+        locations = client.warehouse_get_locations(warehouse_id)
+        print(f"Locations for warehouse {warehouse_id}: {locations}")
 
         corrections = [
             {
@@ -79,7 +84,6 @@ def main():
 
         print( f"corrections: {json.dumps(corrections, indent=2) }")
 
-        location = "53" # works... not sure why, should be 51
         result = client.stock_correction(warehouse_id, location, corrections)
         print("Stock correction result:")
         print(f"Correction IDs: {result}")

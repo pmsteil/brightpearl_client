@@ -59,6 +59,11 @@ class FormattedProductSearchResponse(BaseModel):
     products: List[Dict[str, Any]]
     metadata: ProductSearchMetaData
 
+
+# response like: {'response': [{'id': 438, 'warehouseId': 13, 'groupingA': 'QUARANTINE'}, {'id': 439, 'warehouseId': 13, 'groupingA': '0', 'groupingB': '0', 'groupingC': '0', 'groupingD': '0'}]}
+class WarehouseLocationResponse(BaseModel):
+    response: List[Dict[str, Any]]
+
 class BrightPearlClient(BaseBrightPearlClient):
     def __init__(self, api_base_url: str, brightpearl_app_ref: str, brightpearl_account_token: str,
                  timeout: int = 30, max_retries: int = 3, rate_limit: float = 1):
@@ -313,6 +318,16 @@ class BrightPearlClient(BaseBrightPearlClient):
                 }
 
         return filtered_inventory
+
+    def warehouse_get_locations( self, warehouse_id: int ) -> List[Dict[str, Any]]:
+        """
+        Get the locations for a warehouse
+        /warehouse/1/location/
+        """
+        relative_url = f'/warehouse-service/warehouse/{warehouse_id}/location'
+
+        response = self._make_request(relative_url, WarehouseLocationResponse)
+        return response.response
 
     def _fetch_inventory_data(self, product_ids: List[int]) -> Dict[int, Dict[int, Dict[str, Any]]]:
         """
