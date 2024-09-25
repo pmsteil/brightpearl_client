@@ -369,7 +369,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             if attempt == self._config.max_retries - 1:
                 raise BrightPearlApiError(f"Request failed after {self._config.max_retries} attempts: {str(e)}")
 
-    def stock_correction(self, warehouse_id: int, corrections: List[Dict[str, Any]]) -> List[int]:
+    def stock_correction(self, warehouse_id: int, location_id: int = None,corrections: List[Dict[str, Any]]) -> List[int]:
         """
         Apply stock corrections for multiple products in a specified warehouse.
 
@@ -427,11 +427,14 @@ class BrightPearlClient(BaseBrightPearlClient):
             current_quantity = warehouse_availability.get('onHand', 0)
             quantity_change = new_quantity - current_quantity
 
+            if location_id is None:
+                location_id = 51
+
             formatted_corrections.append({
                 "quantity": quantity_change,
                 "productId": product_id,
                 "reason": correction["reason"],
-                "locationId": 53,
+                "locationId": location_id,
                 "cost": {
                     "currency": "USD",
                     "value": 0.00
