@@ -3,7 +3,7 @@ import requests
 from requests.exceptions import Timeout, HTTPError, RequestException
 import logging
 from pydantic import BaseModel, Field, HttpUrl, field_validator, ValidationError
-from typing import Dict, Any, List, Optional, Union, Type, TypeVar
+from typing import Dict, Any, List, Optional, Union, Type, TypeVar, Tuple
 import os
 import json
 from datetime import datetime, timedelta
@@ -47,12 +47,22 @@ class BrightPearlClientConfig(BaseModel):
     def remove_trailing_slash(cls, v):
         return str(v).rstrip('/')
 
+class OrdersMetadata(BaseModel):
+    morePagesAvailable: bool
+    resultsAvailable: int
+    resultsReturned: int
+    firstResult: int
+    lastResult: int
+    columns: List[Dict[str, Any]]
+    sorting: List[Dict[str, Any]]
+
 class OrderResult(BaseModel):
     orderId: int
     order_type_id: int
     contact_id: int
     order_status_id: int
     order_stock_status_id: int
+    # Add other fields as needed based on the API response
 
     @classmethod
     def from_list(cls, data: List[Any]) -> 'OrderResult':
@@ -62,13 +72,16 @@ class OrderResult(BaseModel):
             contact_id=data[2],
             order_status_id=data[3],
             order_stock_status_id=data[4],
+            # Map other fields as needed
         )
 
 class OrderResponse(BaseModel):
     results: List[List[Any]]
+    metaData: OrdersMetadata
 
 class BrightPearlApiResponse(BaseModel):
     response: OrderResponse
+    reference: Dict[str, Dict[str, str]]
 
 class BaseBrightPearlClient:
     def __init__(self, api_base_url: str, brightpearl_app_ref: str, brightpearl_account_token: str,
@@ -121,7 +134,7 @@ class BaseBrightPearlClient:
                     response = requests.post(url, headers=headers, json=kwargs.get('json'), timeout=self._config.timeout)
                 else:
                     raise ValueError(f"Unsupported HTTP method: {method}")
-                logger.info(f"API Response for {method} {url}:\n{response.json()}")
+                logger.info(f"API Response for {method} {url}:\n{json.dumps(response.json(), indent=3)}")
 
                 # per the docs, a GET shouldn't be returning a 207
                 # 207 normally means multiple statuses, and only on POST, PUT and DELETE operations
@@ -174,21 +187,24 @@ class BaseBrightPearlClient:
             logger.error(f"Unexpected HTTP error: {http_err}")
             raise BrightPearlApiError(f"Unexpected HTTP error: {http_err}")
 
-    def _parse_api_results(self, api_response: BrightPearlApiResponse) -> List[OrderResult]:
+    def _parse_api_results(self, api_response: BrightPearlApiResponse) -> Tuple[List[OrderResult], OrdersMetadata]:
         logger.info(f"Parsing API results")
         if not isinstance(api_response.response.results, list):
             logger.warning("API response is not in the expected format")
-            return []
+            return [], api_response.response.metaData
 
         parsed_results = []
         for result in api_response.response.results:
-            if isinstance(result, list) and len(result) >= 5:
-                parsed_results.append(OrderResult.from_list(result))
-            else:
-                logger.warning(f"Unexpected result format: {result}")
+            try:
+                if isinstance(result, list):
+                    parsed_results.append(OrderResult.from_list(result))
+                else:
+                    logger.warning(f"Unexpected result format: {result}")
+            except Exception as e:
+                logger.error(f"Error parsing result: {e}")
 
         logger.info(f"Parsed {len(parsed_results)} results")
-        return parsed_results
+        return parsed_results, api_response.response.metaData
 
     def _get_cached_data(self, cache_key: str, cache_minutes: int) -> Optional[Any]:
         """

@@ -37,6 +37,18 @@ def main():
 
     print(f"Initialized BrightPearl client with API URL: {api_base_url}")
 
+
+    # Get orders with parsed results
+    parsed_orders, metadata = client.get_orders_by_status(4)
+    print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 4:")
+    print(f"Orders available: {metadata.resultsAvailable}")
+    for order in parsed_orders[:5]:  # Print first 5 orders
+        print(f"  Order ID: {order.orderId}, Type: {order.order_type_id}, Status: {order.order_status_id}")
+
+    # print( f"parsed_orders: {json.dumps(str(parsed_orders), indent=2)}")
+
+    exit(0)
+
     # Test stock correction
     print("\nTesting stock correction...")
     try:
@@ -232,11 +244,11 @@ def main():
     except Exception as e:
         print(f"Unexpected error: {e}")
 
-    exit(0)
+    # exit(0)
 
     # Get orders with parsed results
-    parsed_orders = client.get_orders_by_status(23)
-    print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 23:")
+    parsed_orders = client.get_orders_by_status(4)
+    print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 4 (invoiced):")
     for order in parsed_orders[:5]:  # Print first 5 orders
         print(f"  Order ID: {order.orderId}, Type: {order.order_type_id}, Status: {order.order_status_id}")
 
