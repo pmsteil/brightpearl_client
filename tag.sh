@@ -5,6 +5,6 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 # tag the current commit
-git tag -a v0.1.5 -m "Beta release 0.1.5"
-git push origin v0.1.5
+git tag -a v0.1.7 -m "Beta release 0.1.7"
+git push origin v0.1.7
 git push

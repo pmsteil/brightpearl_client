@@ -71,6 +71,9 @@ class BrightPearlClient(BaseBrightPearlClient):
                          timeout, max_retries, rate_limit)
         self._cache_prefix = self._generate_cache_prefix(brightpearl_app_ref)
 
+    def set_log_level(self, log_level: int):
+        logger.setLevel(log_level)
+
     def _generate_cache_prefix(self, brightpearl_app_ref: str) -> str:
         """Generate a hash prefix for cache filenames."""
         return hashlib.md5(brightpearl_app_ref.encode()).hexdigest()[:8]
