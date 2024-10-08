@@ -4,7 +4,8 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
+release="0.1.8"
 # tag the current commit
-git tag -a v0.1.7 -m "Beta release 0.1.7"
-git push origin v0.1.7
+git tag -a v$release -m "Beta release $release"
+git push origin v$release
 git push

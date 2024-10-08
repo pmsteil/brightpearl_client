@@ -114,7 +114,7 @@ class BaseBrightPearlClient:
         time_since_last_request = current_time - self._last_request_time
         if time_since_last_request < self._config.rate_limit:
             sleep_time = self._config.rate_limit - time_since_last_request
-            logger.debug(f"Rate limit: Sleeping for {sleep_time:.2f} seconds")
+            # logger.debug(f"Rate limit: Sleeping for {sleep_time:.2f} seconds")
             time.sleep(sleep_time)
         self._last_request_time = time.time()
 
@@ -127,14 +127,14 @@ class BaseBrightPearlClient:
         for attempt in range(self._config.max_retries):
             try:
                 self._respect_rate_limit()
-                logger.debug(f"Making {method} request to: {url}")
+                # logger.debug(f"Making {method} request to: {url}")
                 if method.upper() == 'GET':
                     response = requests.get(url, headers=headers, timeout=self._config.timeout)
                 elif method.upper() == 'POST':
                     response = requests.post(url, headers=headers, json=kwargs.get('json'), timeout=self._config.timeout)
                 else:
                     raise ValueError(f"Unsupported HTTP method: {method}")
-                logger.info(f"API Response for {method} {url}:\n{json.dumps(response.json(), indent=3)}")
+                # logger.info(f"API Response for {method} {url}:\n{json.dumps(response.json(), indent=3)}")
 
                 # per the docs, a GET shouldn't be returning a 207
                 # 207 normally means multiple statuses, and only on POST, PUT and DELETE operations
@@ -145,7 +145,7 @@ class BaseBrightPearlClient:
                     raise BrightPearlApiError(f"API Error for {method} {url}:\n{response.text[:500]}")
 
                 response.raise_for_status()
-                logger.info(f"Successfully {method} data to/from: {url}")
+                # logger.info(f"Successfully {method} data to/from: {url}")
                 try:
                     response_data = response.json()
                 except ValueError:
@@ -188,7 +188,7 @@ class BaseBrightPearlClient:
             raise BrightPearlApiError(f"Unexpected HTTP error: {http_err}")
 
     def _parse_api_results(self, api_response: BrightPearlApiResponse) -> Tuple[List[OrderResult], OrdersMetadata]:
-        logger.info(f"Parsing API results")
+        # logger.info(f"Parsing API results")
         if not isinstance(api_response.response.results, list):
             logger.warning("API response is not in the expected format")
             return [], api_response.response.metaData
@@ -221,7 +221,7 @@ class BaseBrightPearlClient:
         if os.path.exists(cache_file):
             cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
             if datetime.now() - cache_time < timedelta(minutes=cache_minutes):
-                logger.info(f"Using cached data for {cache_key}")
+                # logger.info(f"Using cached data for {cache_key}")
                 with open(cache_file, 'r') as cache_file:
                     return json.load(cache_file)
         return None
@@ -237,4 +237,4 @@ class BaseBrightPearlClient:
         cache_file = os.path.join(self._cache_dir, f'{cache_key}_cache.json')
         with open(cache_file, 'w') as cache_file:
             json.dump(data, cache_file)
-        logger.info(f"Saved data to cache for {cache_key}")
+        # logger.info(f"Saved data to cache for {cache_key}")

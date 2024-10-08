@@ -10,6 +10,7 @@ from brightpearl_client.base_client import BrightPearlApiError  # Add this impor
 logging_level = logging.WARNING
 logging_level = logging.INFO
 logging_level = logging.DEBUG
+logging_level = logging.ERROR
 
 # Set global logging level to WARNING
 logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -47,7 +48,7 @@ def main():
 
     # print( f"parsed_orders: {json.dumps(str(parsed_orders), indent=2)}")
 
-    exit(0)
+    # exit(0)
 
     # Test stock correction
     print("\nTesting stock correction...")
@@ -249,8 +250,14 @@ def main():
     # Get orders with parsed results
     parsed_orders = client.get_orders_by_status(4)
     print(f"\nRetrieved {len(parsed_orders)} parsed orders with status 4 (invoiced):")
-    for order in parsed_orders[:5]:  # Print first 5 orders
-        print(f"  Order ID: {order.orderId}, Type: {order.order_type_id}, Status: {order.order_status_id}")
+
+    # example parsed_orders: [ OrderResult(orderId=200001, order_type_id=1, contact_id=217582, order_status_id=4, order_stock_status_id=3) ]
+    for order in parsed_orders[:5]:
+        for order_item in order:
+            if 'orderId' in order_item:
+                print(f"order_item.orderId: {order_item.orderId}, order_item.order_status_id: {order_item.order_status_id}")
+            # else:
+            #     print(f"order_item: {order_item}")
 
     # Get orders without parsing
     raw_response = client.get_orders_by_status(38, parse_api_results=False)

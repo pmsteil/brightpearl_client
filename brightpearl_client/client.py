@@ -96,7 +96,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
         with open(cache_file, 'w') as cache_file:
             json.dump(data, cache_file)
-        logger.info(f"Saved data to cache for {cache_key}")
+        # logger.info(f"Saved data to cache for {cache_key}")
 
     def _invalidate_cache(self, cache_key: str):
         cache_file = os.path.join(self._cache_dir, self._get_cache_filename(cache_key))
