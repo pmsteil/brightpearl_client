@@ -87,7 +87,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         if os.path.exists(cache_file):
             cache_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
             if datetime.now() - cache_time < timedelta(minutes=cache_minutes):
-                logger.info(f"Using cached data for {cache_key}")
+                # logger.info(f"Using cached data for {cache_key}")
                 with open(cache_file, 'r') as cache_file:
                     return json.load(cache_file)
         return None
@@ -103,7 +103,6 @@ class BrightPearlClient(BaseBrightPearlClient):
         if os.path.exists(cache_file):
             try:
                 os.remove(cache_file)
-                logger.info(f"Cache file removed for key: {cache_key}")
             except OSError as e:
                 logger.error(f"Error removing cache file for key {cache_key}: {e}")
         else:
@@ -441,8 +440,8 @@ class BrightPearlClient(BaseBrightPearlClient):
             formatted_corrections.append({
                 "quantity": quantity_change,
                 "productId": product_id,
+                "locationId": int(location),
                 "reason": correction["reason"],
-                "locationId": location,
                 "cost": {
                     "currency": "USD",
                     "value": 0.00
@@ -472,6 +471,7 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         except BrightPearlApiError as e:
             logger.error(f"Failed to apply stock corrections: {str(e)}")
+            logger.error(f"payload: {payload}")
             raise BrightPearlApiError(f"Failed to apply stock corrections: {str(e)}")
 
     def _invalidate_product_availability_cache(self, product_id):
@@ -480,7 +480,6 @@ class BrightPearlClient(BaseBrightPearlClient):
         if os.path.exists(cache_file):
             try:
                 os.remove(cache_file)
-                logger.info(f"Cache file removed for key: {self._cache_prefix}_{cache_key}")
             except OSError as e:
                 logger.error(f"Error removing cache file for key {self._cache_prefix}_{cache_key}: {e}")
         else:

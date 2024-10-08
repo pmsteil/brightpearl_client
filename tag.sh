@@ -1,11 +1,19 @@
-# fail if any git commits outstanding
-if [ -n "$(git status --porcelain)" ]; then
-    echo "You have uncommitted changes. Please commit or stash them before tagging."
+#!/bin/bash
+
+release=$1
+commit_message=$2
+
+#check that both args are passed
+if [ -z "$release" ] || [ -z "$commit_message" ]; then
+    echo "Usage: $0 <release> <commit_message>"
     exit 1
 fi
 
-release="0.1.8"
-# tag the current commit
-git tag -a v$release -m "Beta release $release"
+echo "Tagging release $release with message: $commit_message"
+read -p "Press Enter to continue..."
+
+git add .
+git commit -m "$commit_message"
+git tag -a v$release -m "$commit_message"
 git push origin v$release
 git push

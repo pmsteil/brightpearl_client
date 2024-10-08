@@ -139,11 +139,12 @@ class BaseBrightPearlClient:
                 # per the docs, a GET shouldn't be returning a 207
                 # 207 normally means multiple statuses, and only on POST, PUT and DELETE operations
                 # raise an error for any status code that is not 200 and not 207
-                if method == 'GET' and response.status_code != 200 and response.status_code != 207:
+                if response.status_code != 200 and response.status_code != 207:
                     # only log the first 500 characters of the response body
-                    logger.error(f"API status code [{response.status_code}] calling {method} {url}:\n{response.text[:500]}")
+                    # logger.error(f"API status code [{response.status_code}] calling {method} {url}:\n{response.text[:500]}")
                     raise BrightPearlApiError(f"API Error for {method} {url}:\n{response.text[:500]}")
 
+                logger.debug(f"response: {response}")
                 response.raise_for_status()
                 # logger.info(f"Successfully {method} data to/from: {url}")
                 try:

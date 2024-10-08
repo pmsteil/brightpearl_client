@@ -8,9 +8,9 @@ from brightpearl_client.base_client import BrightPearlApiError  # Add this impor
 
 # Control logging to screen
 logging_level = logging.WARNING
-logging_level = logging.INFO
 logging_level = logging.DEBUG
 logging_level = logging.ERROR
+logging_level = logging.INFO
 
 # Set global logging level to WARNING
 logging.basicConfig(level=logging_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -50,13 +50,15 @@ def main():
 
     # exit(0)
 
-    # Test stock correction
     print("\nTesting stock correction...")
     try:
         warehouse_id = 3  # this one works: Nisolo DC
         location = "53" # 53 works with Nisolo DC... not sure why
         warehouse_id = 13  # JayGroupLCO doesn't like location 53
         location = "439"
+
+        warehouse_id = 14 # JayGroupLCOPublic
+        location = "442"
 
         # Get current inventory for the products we want to update
         product_ids = [1007,1008]
@@ -83,15 +85,20 @@ def main():
         corrections = [
             {
                 "productId": 1007,
-                "new_quantity": sku_1007_current_inventory + 5,
-                "reason": "TEST/Nisolo Inventory Sync"
+                "new_quantity": sku_1007_current_inventory + 10,
+                "reason": "Nisolo Inventory Sync"
             }
             ,
             {
                 "sku": "1HBON085",
                 # "productId": product_id_1hb085,
-                "new_quantity": sku_1hb085_current_inventory + 10,
-                "reason": "TEST/Nisolo Inventory Sync",
+                "new_quantity": sku_1hb085_current_inventory + 20,
+                "reason": "Nisolo Inventory Sync",
+                # "locationId": location,
+                # "cost": {
+                #     "currency": "USD",
+                #     "value": 0.00
+                # }
             }
         ]
 
@@ -100,6 +107,8 @@ def main():
         result = client.stock_correction(warehouse_id, location, corrections)
         print("Stock correction result:")
         print(f"Correction IDs: {result}")
+
+        exit(1)
 
         # Generate cache prefix
         cache_prefix = hashlib.md5(brightpearl_app_ref.encode()).hexdigest()[:8]
