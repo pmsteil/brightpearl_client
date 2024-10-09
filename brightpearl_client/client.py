@@ -105,8 +105,6 @@ class BrightPearlClient(BaseBrightPearlClient):
                 os.remove(cache_file)
             except OSError as e:
                 logger.error(f"Error removing cache file for key {cache_key}: {e}")
-        else:
-            logger.info(f"No cache file found for key: {cache_key}")
 
     def get_orders_by_status(self, status_id: int, parse_api_results: bool = True) -> Union[BrightPearlApiResponse, Tuple[List[OrderResult], OrdersMetadata]]:
         if not isinstance(status_id, int) or status_id <= 0:
@@ -145,7 +143,7 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         for product_id in product_ids:
             if product_id not in stock_tracked_products:
-                logger.info(f"Product ID {product_id} is not stock tracked. Skipping availability check.")
+                logger.debug(f"Product ID {product_id} is not stock tracked. Skipping availability check.")
                 result[product_id] = {"warehouses": {}, "total": {}}
                 continue
 
@@ -234,7 +232,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         cache_key = 'live_products'
         cached_data = self._get_cached_data(cache_key, cache_minutes)
         if cached_data:
-            logger.info("Using cached live products data")
+            logger.debug("Using cached live products data")
             return cached_data
 
         live_products = self._fetch_all_live_products(include_non_stock_tracked)
@@ -278,10 +276,10 @@ class BrightPearlClient(BaseBrightPearlClient):
                 raise BrightPearlApiError(f"Failed to retrieve all products: {str(e)}")
 
         print()  # Move to a new line after all products are fetched
-        logger.info(f"Retrieved {len(all_products)} total products")
+        logger.debug(f"Retrieved {len(all_products)} total products")
 
         live_products = [product for product in all_products if product.get('productStatus') == 'LIVE']
-        logger.info(f"Filtered {len(live_products)} live products out of {len(all_products)} total products")
+        logger.debug(f"Filtered {len(live_products)} live products out of {len(all_products)} total products")
 
         return live_products
 
@@ -491,14 +489,14 @@ class BrightPearlClient(BaseBrightPearlClient):
         relative_url = f'/warehouse-service/warehouse/{warehouse_id}/stock-correction'
 
         try:
-            logger.info(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
+            logger.debug(f"POSTing stock corrections to {relative_url}:\n{json.dumps(payload, indent=2)}")
             response = self._make_request(relative_url, list, method='POST', json=payload)
 
             if isinstance(response, list) and len(response) > 0:
                 for correction in formatted_corrections:
                     product_id = correction['productId']
                     self._invalidate_product_availability_cache(product_id)
-                    logger.info(f"Invalidated cache for product ID {product_id} after successful stock correction")
+                    logger.debug(f"Invalidated cache for product ID {product_id} after successful stock correction")
 
                 return response
             else:
@@ -518,8 +516,6 @@ class BrightPearlClient(BaseBrightPearlClient):
                 os.remove(cache_file)
             except OSError as e:
                 logger.error(f"Error removing cache file for key {self._cache_prefix}_{cache_key}: {e}")
-        else:
-            logger.info(f"No cache file found for key: {self._cache_prefix}_{cache_key}")
 
     def _get_product_id_by_sku(self, sku):
         # Implement this method to fetch product ID by SKU

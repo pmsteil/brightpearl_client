@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="brightpearl_client",
-    version="0.1.11",
+    version="0.1.12",
     packages=find_packages(exclude=["tests"]),
     install_requires=[
         "requests",
