@@ -174,7 +174,7 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         return result
 
-    def search_products(self) -> FormattedProductSearchResponse:
+    def search_products(self, include_non_stock_tracked: bool = False) -> FormattedProductSearchResponse:
         """
         Search for products with no arguments, returning the complete list of available products.
 
@@ -188,26 +188,37 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         try:
             response = self._make_request(relative_url, ProductSearchResponse)
-            return self._format_product_search_response(response)
+            return self._format_product_search_response(response, include_non_stock_tracked)
         except BrightPearlApiError as e:
             logger.error(f"Failed to search products: {str(e)}")
             raise BrightPearlApiError(f"Failed to search products: {str(e)}")
 
-    def _format_product_search_response(self, response: ProductSearchResponse) -> FormattedProductSearchResponse:
+    def _format_product_search_response(self, response: ProductSearchResponse, include_non_stock_tracked: bool = False) -> FormattedProductSearchResponse:
+        """
+            Format the returned product search response.
+            The returned response is a dictionary with a 'results' key and a 'metaData' key.
+            The 'results' key contains a list of products, each with the same number of elements as there are columns in the 'metaData'.
+            The 'metaData' key contains a dictionary with a 'columns' key, which has a list of column names.
+            This function zips the column names to the product data to return a list of products, each with a dictionary of column names and values.
+            Also if include_non_stock_tracked is true, it will include products that are not stock tracked in the results.
+        """
         metadata = response.response['metaData']
         column_names = [column['name'] for column in metadata['columns']]
 
         formatted_products = []
         for product_data in response.response['results']:
             product_dict = dict(zip(column_names, product_data))
-            formatted_products.append(product_dict)
+            if include_non_stock_tracked or product_dict.get('stockTracked', False):
+                formatted_products.append(product_dict)
+            else:
+                logger.debug(f"Product ID {product_dict.get('productId')} is not stock tracked. Skipping.")
 
         return FormattedProductSearchResponse(
             products=formatted_products,
             metadata=ProductSearchMetaData(**metadata)
         )
 
-    def get_all_live_products(self, cache_minutes: int = 60) -> List[Dict[str, Any]]:
+    def get_all_live_products(self, cache_minutes: int = 60, include_non_stock_tracked: bool = False) -> List[Dict[str, Any]]:
         """
         Retrieve all live products, using a cached version if available and not older than specified minutes.
 
@@ -226,13 +237,13 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.info("Using cached live products data")
             return cached_data
 
-        live_products = self._fetch_all_live_products()
+        live_products = self._fetch_all_live_products(include_non_stock_tracked)
 
         self._save_to_cache(cache_key, live_products)
 
         return live_products
 
-    def _fetch_all_live_products(self) -> List[Dict[str, Any]]:
+    def _fetch_all_live_products(self, include_non_stock_tracked: bool = False) -> List[Dict[str, Any]]:
         """
         Fetch all live products from the API.
         """
@@ -247,7 +258,7 @@ class BrightPearlClient(BaseBrightPearlClient):
                 relative_url = f'/product-service/product-search?pageSize={products_per_page}&firstResult={first_result}'
                 logger.debug(f"Retrieving products starting from result {first_result}")
                 response = self._make_request(relative_url, ProductSearchResponse)
-                formatted_response = self._format_product_search_response(response)
+                formatted_response = self._format_product_search_response(response, include_non_stock_tracked)
 
                 metadata = formatted_response.metadata
                 products_in_batch = len(formatted_response.products)

@@ -113,7 +113,6 @@ def main():
         result = client.stock_correction(warehouse_id, location, corrections)
         print(f"Correction IDs: {result}")
 
-        exit(1)
 
         # Generate cache prefix
         cache_prefix = hashlib.md5(brightpearl_app_ref.encode()).hexdigest()[:8]
@@ -136,7 +135,6 @@ def main():
     except Exception as e:
         raise e
 
-    # exit(0)
 
 
 
