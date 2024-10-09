@@ -70,6 +70,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         super().__init__(api_base_url, brightpearl_app_ref, brightpearl_account_token,
                          timeout, max_retries, rate_limit)
         self._cache_prefix = self._generate_cache_prefix(brightpearl_app_ref)
+        self.name = "BrightPearlClient"
 
     def set_log_level(self, log_level: int):
         logger.setLevel(log_level)
@@ -345,7 +346,7 @@ class BrightPearlClient(BaseBrightPearlClient):
         batch_size = 500
         total_batches = math.ceil(len(product_ids) / batch_size)
 
-        print("Fetching inventory: ", end="", flush=True)
+        print(f"{self.name}: fetching inventory: ", end="", flush=True)
         for batch_num in range(total_batches):
             start_idx = batch_num * batch_size
             end_idx = min((batch_num + 1) * batch_size, len(product_ids))
