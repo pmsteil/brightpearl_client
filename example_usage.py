@@ -83,29 +83,34 @@ def main():
         print(f"Locations for warehouse {warehouse_id}: {locations}")
 
         corrections = [
+            # {
+            #     "productId": 1007,
+            #     "new_quantity": sku_1007_current_inventory + 10,
+            #     "reason": "Test Sync"
+            # }
+            # ,
+            # {
+            #     "sku": "1HBON085",
+            #     # "productId": product_id_1hb085,
+            #     "new_quantity": sku_1hb085_current_inventory + 20,
+            #     "reason": "Test Sync",
+            #     # "locationId": location,
+            #     # "cost": {
+            #     #     "currency": "USD",
+            #     #     "value": 0.00
+            #     # }
+            # }
+            # ,
             {
-                "productId": 1007,
-                "new_quantity": sku_1007_current_inventory + 10,
-                "reason": "Nisolo Inventory Sync"
-            }
-            ,
-            {
-                "sku": "1HBON085",
-                # "productId": product_id_1hb085,
-                "new_quantity": sku_1hb085_current_inventory + 20,
-                "reason": "Nisolo Inventory Sync",
-                # "locationId": location,
-                # "cost": {
-                #     "currency": "USD",
-                #     "value": 0.00
-                # }
+                "sku": "1HBON095",
+                "new_quantity": 0,
+                "reason": "Test Sync",
             }
         ]
 
         print( f"corrections: {json.dumps(corrections, indent=2) }")
 
         result = client.stock_correction(warehouse_id, location, corrections)
-        print("Stock correction result:")
         print(f"Correction IDs: {result}")
 
         exit(1)

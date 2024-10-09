@@ -414,7 +414,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             if 'sku' in correction:
                 sku = correction['sku']
                 if sku not in sku_to_product_id:
-                    raise ValueError(f"SKU '{sku}' not found in live products")
+                    raise ValueError(f"SKU '{sku}' not found in live products in warehouse {warehouse_id}")
                 product_id = sku_to_product_id[sku]
             elif 'productId' in correction:
                 product_id = correction['productId']
@@ -432,22 +432,46 @@ class BrightPearlClient(BaseBrightPearlClient):
             product_availability = current_availability.get(product_id, {})
             warehouse_availability = product_availability.get('warehouses', {}).get(str(warehouse_id), {})
             current_quantity = warehouse_availability.get('onHand', 0)
-            quantity_change = new_quantity - current_quantity
+            # calculate the quantity delta to send as the stock correction (positive:add stock, negative:remove stock)
+            quantity_delta = new_quantity - current_quantity
 
             if location is None:
                 location = "0.0.0.0"
 
-            formatted_corrections.append({
-                "quantity": quantity_change,
-                "productId": product_id,
-                "locationId": int(location),
-                "reason": correction["reason"],
-                "cost": {
-                    "currency": "USD",
+            if quantity_delta != 0:
+                correction = ({
+                    "quantity": quantity_delta,
+                    "productId": product_id,
+                    "locationId": int(location),
+                    "reason": correction["reason"],
+                    "cost": {
+                        "currency": "USD",
                     "value": 0.00
                 }
-            })
+                })
+                formatted_corrections.append( correction )
 
+        if len(formatted_corrections) > 0:
+            apply_stock_correction_response = self.apply_stock_correction(warehouse_id, formatted_corrections)
+            return apply_stock_correction_response
+        else:
+            logger.warning("No stock corrections to apply")
+            return []
+
+    def apply_stock_correction( self, warehouse_id: int, formatted_corrections: List[Dict[str, Any]] ) -> List[int]:
+        """
+        Apply stock corrections to a warehouse.
+
+        Args:
+            warehouse_id (int): The ID of the warehouse where the corrections will be applied.
+            formatted_corrections (List[Dict[str, Any]]): A list of dictionaries containing correction details.
+
+        Returns:
+            List[int]: The list of correction IDs returned by the API.
+
+        Raises:
+            BrightPearlApiError: If there's an error with the API request.
+        """
         logger.debug(f"formatted_corrections: {formatted_corrections}")
         payload = {
             "corrections": formatted_corrections
@@ -473,6 +497,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.error(f"Failed to apply stock corrections: {str(e)}")
             logger.error(f"payload: {payload}")
             raise BrightPearlApiError(f"Failed to apply stock corrections: {str(e)}")
+
 
     def _invalidate_product_availability_cache(self, product_id):
         cache_key = f'product_availability_{product_id}'
