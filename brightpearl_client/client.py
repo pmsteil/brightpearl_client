@@ -467,7 +467,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             logger.info(f"Applied {len(apply_stock_correction_response)} stock corrections to BrightPearl")
             return apply_stock_correction_response
         else:
-            logger.warning("No stock corrections detected to apply to BrightPearl")
+            logger.info("No stock corrections detected to apply to BrightPearl")
             return []
 
     def apply_stock_correction( self, warehouse_id: int, formatted_corrections: List[Dict[str, Any]] ) -> List[int]:
