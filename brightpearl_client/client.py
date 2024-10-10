@@ -448,6 +448,7 @@ class BrightPearlClient(BaseBrightPearlClient):
             if location is None:
                 location = "0.0.0.0"
 
+            #only add the correction if the quantity delta is not zero
             if quantity_delta != 0:
                 correction = ({
                     "quantity": quantity_delta,
@@ -463,9 +464,10 @@ class BrightPearlClient(BaseBrightPearlClient):
 
         if len(formatted_corrections) > 0:
             apply_stock_correction_response = self.apply_stock_correction(warehouse_id, formatted_corrections)
+            logger.info(f"Applied {len(apply_stock_correction_response)} stock corrections to BrightPearl")
             return apply_stock_correction_response
         else:
-            logger.warning("No stock corrections to apply")
+            logger.warning("No stock corrections detected to apply to BrightPearl")
             return []
 
     def apply_stock_correction( self, warehouse_id: int, formatted_corrections: List[Dict[str, Any]] ) -> List[int]:
